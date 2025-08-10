@@ -60,7 +60,9 @@ func (node *TreeNode[T]) InsertInOrder(data T) error {
 			err = node.right.InsertInOrder(data)
 		}
 	}
-	node.size++
+	if err == nil {
+		node.size++
+	}
 	return err
 }
 
@@ -104,20 +106,14 @@ func (node *TreeNode[T]) Size() int {
 // Find searches for a node with the given data in the subtree rooted at the current node.
 // It returns a pointer to the found TreeNode or nil if the data is not found.
 func (node *TreeNode[T]) Find(data T) *TreeNode[T] {
-	if err := validateNode(node); err != nil {
+	if node == nil {
 		return nil
 	}
 	if node.data == data {
 		return node
 	}
 	if data < node.data {
-		if node.left == nil {
-			return nil
-		}
 		return node.left.Find(data)
-	}
-	if node.right == nil {
-		return nil
 	}
 	return node.right.Find(data)
 }
