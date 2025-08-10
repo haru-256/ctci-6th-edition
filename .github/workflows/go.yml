@@ -30,7 +30,7 @@ jobs:
 
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          golangci_lint_flags: "--config=./.golangci.yml ./..."
+          golangci_lint_flags: "--config=.workbench/go/.golangci.yml ./..."
           go_version_file: "./workbench/go/go.mod" # this should be relative to the root of the repository
           fail_level: "error"
           reporter: "github-pr-review"
