@@ -97,7 +97,7 @@ func (node *TreeNode[T]) setRightChild(right *TreeNode[T]) error {
 // Size returns the total number of nodes in the subtree rooted at the current node,
 // including the node itself. Returns 0 if the node is nil.
 func (node *TreeNode[T]) Size() int {
-	if err := validateNode(node); err != nil {
+	if node == nil {
 		return 0
 	}
 	return node.size
