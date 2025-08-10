@@ -5,8 +5,12 @@ import (
 	"errors"
 )
 
-var NodeIsNilError = errors.New("node is nil")
+// ErrorNodeIsNil is returned when an operation is attempted on a nil TreeNode.
+var ErrorNodeIsNil = errors.New("node is nil")
 
+// TreeNode represents a node in a binary search tree.
+// It holds a generic data type T that must satisfy the cmp.Ordered interface,
+// allowing for comparison between elements.
 type TreeNode[T cmp.Ordered] struct {
 	data   T
 	parent *TreeNode[T]
@@ -15,6 +19,8 @@ type TreeNode[T cmp.Ordered] struct {
 	size   int
 }
 
+// NewTreeNode creates and returns a new TreeNode with the given data.
+// The new node's size is initialized to 1.
 func NewTreeNode[T cmp.Ordered](d T) *TreeNode[T] {
 	return &TreeNode[T]{
 		data: d,
@@ -22,36 +28,45 @@ func NewTreeNode[T cmp.Ordered](d T) *TreeNode[T] {
 	}
 }
 
+// validateNode checks if a TreeNode is nil and returns an error if it is.
 func validateNode[T cmp.Ordered](node *TreeNode[T]) error {
 	if node == nil {
-		return NodeIsNilError
+		return ErrorNodeIsNil
 	}
 	return nil
 }
 
+// InsertInOrder inserts a new data element into the binary search tree
+// rooted at the current node. It maintains the binary search tree property:
+// elements less than or equal to the current node's data go to the left,
+// and elements greater than the current node's data go to the right.
+// The size of each node in the path of insertion is incremented.
 func (node *TreeNode[T]) InsertInOrder(data T) error {
 	if err := validateNode(node); err != nil {
 		return err
 	}
 
+	var err error
 	if data <= node.data {
 		if node.left == nil {
-			node.SetLeftChild(NewTreeNode(data))
+			err = node.setLeftChild(NewTreeNode(data))
 		} else {
-			node.left.InsertInOrder(data)
+			err = node.left.InsertInOrder(data)
 		}
 	} else {
 		if node.right == nil {
-			node.SetRightChild(NewTreeNode(data))
+			err = node.setRightChild(NewTreeNode(data))
 		} else {
-			node.right.InsertInOrder(data)
+			err = node.right.InsertInOrder(data)
 		}
 	}
 	node.size++
-	return nil
+	return err
 }
 
-func (node *TreeNode[T]) SetLeftChild(left *TreeNode[T]) error {
+// SetLeftChild attaches a node as the left child of the current node.
+// It also sets the parent of the left child to the current node.
+func (node *TreeNode[T]) setLeftChild(left *TreeNode[T]) error {
 	if err := validateNode(node); err != nil {
 		return err
 	}
@@ -59,13 +74,13 @@ func (node *TreeNode[T]) SetLeftChild(left *TreeNode[T]) error {
 		return err
 	}
 	node.left = left
-	if left != nil {
-		left.parent = node
-	}
+	left.parent = node
 	return nil
 }
 
-func (node *TreeNode[T]) SetRightChild(right *TreeNode[T]) error {
+// SetRightChild attaches a node as the right child of the current node.
+// It also sets the parent of the right child to the current node.
+func (node *TreeNode[T]) setRightChild(right *TreeNode[T]) error {
 	if err := validateNode(node); err != nil {
 		return err
 	}
@@ -73,12 +88,12 @@ func (node *TreeNode[T]) SetRightChild(right *TreeNode[T]) error {
 		return err
 	}
 	node.right = right
-	if right != nil {
-		right.parent = node
-	}
+	right.parent = node
 	return nil
 }
 
+// Size returns the total number of nodes in the subtree rooted at the current node,
+// including the node itself. Returns 0 if the node is nil.
 func (node *TreeNode[T]) Size() int {
 	if err := validateNode(node); err != nil {
 		return 0
@@ -86,6 +101,8 @@ func (node *TreeNode[T]) Size() int {
 	return node.size
 }
 
+// Find searches for a node with the given data in the subtree rooted at the current node.
+// It returns a pointer to the found TreeNode or nil if the data is not found.
 func (node *TreeNode[T]) Find(data T) *TreeNode[T] {
 	if err := validateNode(node); err != nil {
 		return nil
@@ -94,7 +111,13 @@ func (node *TreeNode[T]) Find(data T) *TreeNode[T] {
 		return node
 	}
 	if data < node.data {
+		if node.left == nil {
+			return nil
+		}
 		return node.left.Find(data)
+	}
+	if node.right == nil {
+		return nil
 	}
 	return node.right.Find(data)
 }
