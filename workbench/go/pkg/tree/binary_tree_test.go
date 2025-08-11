@@ -262,8 +262,9 @@ func TestBinaryTree_Delete(t *testing.T) {
 
 		// Try to delete nonexistent node
 		deletedKey, err := tree.Delete("nonexistent")
-		require.NoError(t, err)                   // Should not error due to ErrorNodeNotFound handling
-		assert.NotZero(t, deletedKey)             // Hash will be computed even if not found
+		require.Error(t, err) // Should return ErrorNodeNotFound
+		require.Equal(t, ErrorNodeNotFound, err)
+		assert.Zero(t, deletedKey)                // Hash will be computed even if not found
 		assert.Equal(t, initialSize, tree.Size()) // Size should remain unchanged
 
 		// Verify existing nodes are still there
