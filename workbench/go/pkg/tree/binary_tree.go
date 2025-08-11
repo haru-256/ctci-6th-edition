@@ -98,7 +98,7 @@ func (tree *BinaryTree[V]) Delete(value V) (uint64, error) {
 	_root, err := tree.root.delete(key, value)
 	if err != nil {
 		if errors.Is(err, ErrorNodeNotFound) {
-			// ノードが見つからなかった場合、サイズは変更しない
+			// If the node is not found, the size is not changed
 			return key, nil
 		}
 		return 0, err // その他のエラー
