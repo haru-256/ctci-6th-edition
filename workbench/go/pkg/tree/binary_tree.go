@@ -59,11 +59,15 @@ func (tree *BinaryTree[V]) InsertInOrder(value V) error {
 // Find searches for a node with the given value in the tree.
 // It returns a pointer to the found Node or nil if the value is not found.
 func (tree *BinaryTree[V]) Find(value V) *Node[uint64, V] {
+	if tree.root == nil {
+		return nil
+	}
 	key, err := tree.GetHash(value)
 	if err != nil {
 		return nil
 	}
 	return tree.root.find(key, value)
+}
 }
 
 // getHash computes and returns the FNV-1a hash of a given value.
