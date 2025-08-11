@@ -6,8 +6,11 @@ import (
 	"errors"
 )
 
-// ErrorNodeIsNil is returned when an operation is attempted on a nil TreeNode.
+// ErrorNodeIsNil is returned when an operation is attempted on a nil Node.
 var ErrorNodeIsNil = errors.New("node is nil")
+
+// ErrorNodeNotFound is returned when a delete operation cannot find the target node.
+var ErrorNodeNotFound = errors.New("node not found")
 
 // Node represents a node in a binary search tree.
 // It holds a generic key `K` that must be an ordered type, and a generic value `V`
@@ -51,6 +54,72 @@ func (node *Node[K, V]) insertInOrder(key K, value V) error {
 		}
 	}
 	return err
+}
+
+// delete removes a node with the specified key and value from the binary search tree.
+// It returns the new root of the subtree after deletion and an error if the operation fails.
+// For nodes with two children, it replaces the node with its in-order successor.
+// Returns ErrorNodeNotFound if the target node is not found.
+func (node *Node[K, V]) delete(key K, value V) (*Node[K, V], error) {
+	if node == nil {
+		return nil, ErrorNodeNotFound
+	}
+
+	if key < node.key {
+		_node, err := node.left.delete(key, value)
+		if err != nil {
+			return nil, err
+		}
+		node.left = _node
+	} else if key > node.key {
+		_node, err := node.right.delete(key, value)
+		if err != nil {
+			return nil, err
+		}
+		node.right = _node
+	} else if node.value == value { // key == node.key
+		// このノードを削除
+		if node.left == nil {
+			return node.right, nil
+		} else if node.right == nil {
+			return node.left, nil
+		} else {
+			minNode, err := node.right.findMin()
+			if err != nil {
+				return nil, err
+			}
+			node.key = minNode.key
+			node.value = minNode.value
+			_node, err := node.right.delete(minNode.key, minNode.value)
+			if err != nil {
+				return nil, err
+			}
+			node.right = _node
+			return node, nil
+		}
+	} else { // key == node.key but value is different
+		// 同じキーだが違う値の場合、左の子ツリーを探索
+		_node, err := node.left.delete(key, value)
+		if err != nil {
+			return nil, err
+		}
+		node.left = _node
+	}
+	return node, nil
+}
+
+// findMin finds and returns the node with the minimum key in the subtree rooted at this node.
+// It traverses left children until reaching the leftmost node.
+// Returns ErrorNodeIsNil if called on a nil node.
+func (node *Node[K, V]) findMin() (*Node[K, V], error) {
+	if node == nil {
+		return nil, ErrorNodeIsNil
+	}
+	current := node
+	for current.left != nil {
+		current = current.left
+	}
+	return current, nil
 }
 
 // setLeftChild attaches a node as the left child of the current node.

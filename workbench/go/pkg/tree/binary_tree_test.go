@@ -15,7 +15,6 @@ func TestNewBinaryTree(t *testing.T) {
 		require.NotNil(t, tree)
 		assert.Nil(t, tree.root)
 		assert.Equal(t, 0, tree.Size())
-		assert.NotNil(t, tree.hasher)
 	})
 
 	t.Run("with root", func(t *testing.T) {
@@ -129,5 +128,185 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 		err = errorTree.InsertInOrder(true) // bool is unsupported
 		assert.ErrorIs(t, err, ErrorUnsupportedValueType)
 		assert.Equal(t, 0, errorTree.Size())
+	})
+}
+
+func TestBinaryTree_Delete(t *testing.T) {
+	t.Run("delete from empty tree", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+		_, err = tree.Delete("nonexistent")
+		assert.ErrorIs(t, err, ErrorNodeIsNil)
+		assert.Equal(t, 0, tree.Size())
+	})
+
+	t.Run("delete leaf node", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert nodes
+		values := []string{"apple", "banana", "cherry"}
+		for _, v := range values {
+			err = tree.InsertInOrder(v)
+			require.NoError(t, err)
+		}
+		initialSize := tree.Size()
+
+		// Delete a leaf node
+		deletedKey, err := tree.Delete("cherry")
+		require.NoError(t, err)
+		assert.NotZero(t, deletedKey)
+		assert.Equal(t, initialSize-1, tree.Size())
+
+		// Verify it's deleted
+		foundNode, err := tree.Find("cherry")
+		assert.NoError(t, err)
+		assert.Nil(t, foundNode)
+
+		// Verify other nodes still exist
+		foundNode, err = tree.Find("apple")
+		assert.NoError(t, err)
+		assert.NotNil(t, foundNode)
+	})
+
+	t.Run("delete node with one child", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert nodes to create a node with one child
+		values := []string{"banana", "apple", "cherry", "date"}
+		for _, v := range values {
+			err = tree.InsertInOrder(v)
+			require.NoError(t, err)
+		}
+		initialSize := tree.Size()
+
+		// Delete node with one child
+		deletedKey, err := tree.Delete("cherry")
+		require.NoError(t, err)
+		assert.NotZero(t, deletedKey)
+		assert.Equal(t, initialSize-1, tree.Size())
+
+		// Verify it's deleted
+		foundNode, err := tree.Find("cherry")
+		assert.NoError(t, err)
+		assert.Nil(t, foundNode)
+
+		// Verify child node still exists
+		foundNode, err = tree.Find("date")
+		assert.NoError(t, err)
+		assert.NotNil(t, foundNode)
+	})
+
+	t.Run("delete node with two children", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert nodes to create a node with two children
+		values := []string{"banana", "apple", "cherry", "blueberry", "date"}
+		for _, v := range values {
+			err = tree.InsertInOrder(v)
+			require.NoError(t, err)
+		}
+		initialSize := tree.Size()
+
+		// Delete node with two children
+		deletedKey, err := tree.Delete("cherry")
+		require.NoError(t, err)
+		assert.NotZero(t, deletedKey)
+		assert.Equal(t, initialSize-1, tree.Size())
+
+		// Verify it's deleted
+		foundNode, err := tree.Find("cherry")
+		assert.NoError(t, err)
+		assert.Nil(t, foundNode)
+
+		// Verify children still exist
+		foundNode, err = tree.Find("blueberry")
+		assert.NoError(t, err)
+		assert.NotNil(t, foundNode)
+
+		foundNode, err = tree.Find("date")
+		assert.NoError(t, err)
+		assert.NotNil(t, foundNode)
+	})
+
+	t.Run("delete root node", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert only root
+		err = tree.InsertInOrder("root")
+		require.NoError(t, err)
+		assert.Equal(t, 1, tree.Size())
+
+		// Delete root
+		deletedKey, err := tree.Delete("root")
+		require.NoError(t, err)
+		assert.NotZero(t, deletedKey)
+		assert.Equal(t, 0, tree.Size())
+		assert.Nil(t, tree.root)
+	})
+
+	t.Run("delete nonexistent node", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert some nodes
+		values := []string{"apple", "banana", "cherry"}
+		for _, v := range values {
+			err = tree.InsertInOrder(v)
+			require.NoError(t, err)
+		}
+		initialSize := tree.Size()
+
+		// Try to delete nonexistent node
+		deletedKey, err := tree.Delete("nonexistent")
+		require.NoError(t, err)                   // Should not error due to ErrorNodeNotFound handling
+		assert.NotZero(t, deletedKey)             // Hash will be computed even if not found
+		assert.Equal(t, initialSize, tree.Size()) // Size should remain unchanged
+
+		// Verify existing nodes are still there
+		foundNode, err := tree.Find("apple")
+		assert.NoError(t, err)
+		assert.NotNil(t, foundNode)
+	})
+
+	t.Run("delete with unsupported type", func(t *testing.T) {
+		tree, err := NewBinaryTree[any]()
+		require.NoError(t, err)
+
+		// Insert a node first to avoid ErrorNodeIsNil
+		err = tree.InsertInOrder("test")
+		require.NoError(t, err)
+
+		_, err = tree.Delete(true) // bool is unsupported
+		assert.ErrorIs(t, err, ErrorUnsupportedValueType)
+	})
+
+	t.Run("delete all nodes", func(t *testing.T) {
+		tree, err := NewBinaryTree[string]()
+		require.NoError(t, err)
+
+		// Insert multiple nodes
+		values := []string{"banana", "apple", "cherry", "date", "elderberry"}
+		for _, v := range values {
+			err = tree.InsertInOrder(v)
+			require.NoError(t, err)
+		}
+
+		// Delete all nodes one by one
+		for i, v := range values {
+			var deletedKey uint64
+			deletedKey, err = tree.Delete(v)
+			require.NoError(t, err)
+			assert.NotZero(t, deletedKey)
+			expectedSize := len(values) - i - 1
+			assert.Equal(t, expectedSize, tree.Size())
+		}
+
+		// Tree should be empty
+		assert.Equal(t, 0, tree.Size())
+		assert.Nil(t, tree.root)
 	})
 }

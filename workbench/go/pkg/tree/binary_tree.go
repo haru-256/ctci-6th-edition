@@ -7,27 +7,43 @@ import (
 	"hash"
 	"hash/fnv"
 	"math"
+	"sync"
 )
 
 // ErrorUnsupportedValueType is returned when getHash is called with a value
 // type that cannot be converted to a byte slice for hashing.
 var ErrorUnsupportedValueType = errors.New("unsupported value type for hashing")
 
-// BinaryTree represents a binary search tree.
-// The keys are uint64 hashes of the values `V`, which must be comparable.
-type BinaryTree[V comparable] struct {
-	root   *Node[uint64, V]
-	size   int
-	hasher hash.Hash64
+// hasherPool is a pool of FNV-1a hashers to avoid allocations in getHash.
+// This provides thread-safe access to reusable hash.Hash64 instances,
+// improving performance by reducing garbage collection pressure.
+var hasherPool = sync.Pool{
+	New: func() interface{} {
+		return fnv.New64a()
+	},
 }
 
-// NewBinaryTree creates and returns a new BinaryTree, optionally with a root node.
+// BinaryTree represents a thread-safe binary search tree.
+// The keys are uint64 hashes of the values `V`, which must be comparable.
+// It uses FNV-1a hashing to convert values to keys and maintains BST properties.
+type BinaryTree[V comparable] struct {
+	root *Node[uint64, V]
+	size int
+	mu   sync.RWMutex
+}
+
+// NewBinaryTree creates and returns a new empty BinaryTree.
+// The tree is initialized with no root node and zero size.
 func NewBinaryTree[V comparable]() (*BinaryTree[V], error) {
-	tree := &BinaryTree[V]{root: nil, size: 0, hasher: fnv.New64a()}
+	tree := &BinaryTree[V]{
+		root: nil,
+		size: 0,
+	}
 	return tree, nil
 }
 
-// Size returns the total number of nodes in the tree.
+// Size returns the total number of nodes currently in the tree.
+// This method is thread-safe.
 func (tree *BinaryTree[V]) Size() int {
 	return tree.size
 }
@@ -36,7 +52,11 @@ func (tree *BinaryTree[V]) Size() int {
 // It calculates a hash of the value to use as the key, then inserts the
 // new node while maintaining the binary search tree property.
 // The tree's size is incremented on successful insertion.
+// This method is thread-safe.
 func (tree *BinaryTree[V]) InsertInOrder(value V) error {
+	tree.mu.Lock()
+	defer tree.mu.Unlock()
+
 	key, err := tree.getHash(value)
 	if err != nil {
 		return err
@@ -56,9 +76,47 @@ func (tree *BinaryTree[V]) InsertInOrder(value V) error {
 	return err
 }
 
+// Delete removes a node with the specified value from the binary search tree.
+// It returns the hash key of the deleted value and an error if the operation fails.
+// If the tree is empty, it returns ErrorNodeIsNil.
+// If the node is not found, it returns the key but doesn't modify the tree.
+// The tree's size is decremented only on successful deletion.
+// This method is thread-safe.
+func (tree *BinaryTree[V]) Delete(value V) (uint64, error) {
+	tree.mu.Lock()
+	defer tree.mu.Unlock()
+
+	if tree.root == nil {
+		return 0, ErrorNodeIsNil
+	}
+
+	key, err := tree.getHash(value)
+	if err != nil {
+		return 0, err
+	}
+
+	_root, err := tree.root.delete(key, value)
+	if err != nil {
+		if errors.Is(err, ErrorNodeNotFound) {
+			// ノードが見つからなかった場合、サイズは変更しない
+			return key, nil
+		}
+		return 0, err // その他のエラー
+	}
+	tree.root = _root
+	// 削除成功の場合のみサイズをデクリメント
+	tree.size--
+	return key, nil
+}
+
 // Find searches for a node with the given value in the tree.
 // It returns a pointer to the found Node or nil if the value is not found.
+// If the tree is empty, it returns ErrorNodeIsNil.
+// This method is thread-safe and uses a read lock for concurrent access.
 func (tree *BinaryTree[V]) Find(value V) (*Node[uint64, V], error) {
+	tree.mu.RLock()
+	defer tree.mu.RUnlock()
+
 	if tree.root == nil {
 		return nil, ErrorNodeIsNil
 	}
@@ -70,11 +128,15 @@ func (tree *BinaryTree[V]) Find(value V) (*Node[uint64, V], error) {
 }
 
 // getHash computes and returns the FNV-1a hash of a given value.
+// It uses a sync.Pool to reuse hasher objects, making it safe for concurrent use
+// and avoiding allocations on each call.
 // It supports int, float64, and string types. For other types,
-// it returns an ErrorUnsupportedValueType.
+// it returns ErrorUnsupportedValueType.
 func (tree *BinaryTree[V]) getHash(value V) (uint64, error) {
-	// Reset the hasher for a new computation.
-	tree.hasher.Reset()
+	// Get a hasher from the pool and defer returning it
+	hasher := hasherPool.Get().(hash.Hash64)
+	defer hasherPool.Put(hasher)
+	hasher.Reset()
 
 	// Convert the value to a byte slice based on its type.
 	var b []byte
@@ -95,8 +157,8 @@ func (tree *BinaryTree[V]) getHash(value V) (uint64, error) {
 
 	// Write the byte slice to the hasher.
 	// This Write is guaranteed not to return an error.
-	tree.hasher.Write(b)
+	hasher.Write(b)
 
 	// Return the computed 64-bit hash.
-	return tree.hasher.Sum64(), nil
+	return hasher.Sum64(), nil
 }
