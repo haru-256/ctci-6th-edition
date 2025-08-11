@@ -84,7 +84,7 @@ func (node *Node[K, V]) delete(key K, value V) (*Node[K, V], error) {
 			node.right.parent = node
 		}
 	} else if node.value == value { // key == node.key
-		// このノードを削除
+		// Delete this node
 		if node.left == nil {
 			return node.right, nil
 		} else if node.right == nil {
@@ -104,7 +104,7 @@ func (node *Node[K, V]) delete(key K, value V) (*Node[K, V], error) {
 			return node, nil
 		}
 	} else { // key == node.key but value is different
-		// 同じキーだが違う値の場合、左の子ツリーを探索
+		// Same key but different value, search in left subtree
 		_node, err := node.left.delete(key, value)
 		if err != nil {
 			return nil, err

@@ -18,7 +18,7 @@ var ErrorUnsupportedValueType = errors.New("unsupported value type for hashing")
 // This provides thread-safe access to reusable hash.Hash64 instances,
 // improving performance by reducing garbage collection pressure.
 var hasherPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return fnv.New64a()
 	},
 }
@@ -102,10 +102,10 @@ func (tree *BinaryTree[V]) Delete(value V) (uint64, error) {
 			// If the node is not found, the size is not changed
 			return key, nil
 		}
-		return 0, err // その他のエラー
+		return 0, err // Other errors
 	}
 	tree.root = _root
-	// 削除成功の場合のみサイズをデクリメント
+	// Decrement size only on successful deletion
 	tree.size--
 	return key, nil
 }
