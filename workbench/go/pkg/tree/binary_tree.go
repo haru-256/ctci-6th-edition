@@ -73,7 +73,7 @@ func (tree *BinaryTree[V]) Find(value V) *Node[uint64, V] {
 // getHash computes and returns the FNV-1a hash of a given value.
 // It supports int, float64, and string types. For other types,
 // it returns an ErrorUnsupportedValueType.
-func (tree *BinaryTree[V]) GetHash(value V) (uint64, error) {
+func (tree *BinaryTree[V]) getHash(value V) (uint64, error) {
 	// Reset the hasher for a new computation.
 	tree.hasher.Reset()
 
