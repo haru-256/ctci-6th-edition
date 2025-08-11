@@ -54,14 +54,14 @@ func TestGetHash(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			hash1, err1 := tree.GetHash(tc.value1)
+			hash1, err1 := tree.getHash(tc.value1)
 			if tc.expectErr {
 				assert.ErrorIs(t, err1, tc.expectedError)
 				return
 			}
 			require.NoError(t, err1)
 
-			hash2, err2 := tree.GetHash(tc.value2)
+			hash2, err2 := tree.getHash(tc.value2)
 			require.NoError(t, err2)
 
 			if tc.expectEqual {
@@ -99,7 +99,8 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 		// Find all inserted elements
 		for _, v := range values {
 			t.Run("find_"+v, func(t *testing.T) {
-				foundNode := tree.Find(v)
+				foundNode, err := tree.Find(v)
+				assert.NoError(t, err)
 				assert.NotNil(t, foundNode)
 				if foundNode != nil {
 					assert.Equal(t, v, foundNode.value)
@@ -109,13 +110,18 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 	})
 
 	t.Run("find non-existent", func(t *testing.T) {
-		assert.Nil(t, tree.Find("watermelon"))
+		foundNode, err := tree.Find("watermelon")
+		assert.NoError(t, err)
+		assert.Nil(t, foundNode)
 	})
 
 	t.Run("find in empty tree", func(t *testing.T) {
 		emptyTree, err := NewBinaryTree[string]()
 		require.NoError(t, err)
-		assert.Nil(t, emptyTree.Find("anything"))
+		node, err := emptyTree.Find("anything") // Ensure no panic on empty tree
+		assert.Error(t, err)
+		assert.Equal(t, ErrorNodeIsNil, err)
+		assert.Nil(t, node)
 	})
 
 	t.Run("insert unsupported type", func(t *testing.T) {

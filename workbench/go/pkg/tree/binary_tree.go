@@ -37,7 +37,7 @@ func (tree *BinaryTree[V]) Size() int {
 // new node while maintaining the binary search tree property.
 // The tree's size is incremented on successful insertion.
 func (tree *BinaryTree[V]) InsertInOrder(value V) error {
-	key, err := tree.GetHash(value)
+	key, err := tree.getHash(value)
 	if err != nil {
 		return err
 	}
@@ -58,16 +58,15 @@ func (tree *BinaryTree[V]) InsertInOrder(value V) error {
 
 // Find searches for a node with the given value in the tree.
 // It returns a pointer to the found Node or nil if the value is not found.
-func (tree *BinaryTree[V]) Find(value V) *Node[uint64, V] {
+func (tree *BinaryTree[V]) Find(value V) (*Node[uint64, V], error) {
 	if tree.root == nil {
-		return nil
+		return nil, ErrorNodeIsNil
 	}
-	key, err := tree.GetHash(value)
+	key, err := tree.getHash(value)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return tree.root.find(key, value)
-}
+	return tree.root.find(key, value), nil
 }
 
 // getHash computes and returns the FNV-1a hash of a given value.

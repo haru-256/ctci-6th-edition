@@ -81,11 +81,20 @@ func (node *Node[K, V]) find(key K, value V) *Node[K, V] {
 	if node == nil {
 		return nil
 	}
-	if node.key == key && node.value == value {
-		return node
-	}
+
 	if key < node.key {
 		return node.left.find(key, value)
 	}
-	return node.right.find(key, value)
+	if key > node.key {
+		return node.right.find(key, value)
+	}
+
+	// key == node.key
+	if node.value == value {
+		return node
+	}
+
+	// Since insertInOrder places equal keys in the left subtree,
+	// we continue the search there for other nodes with the same key.
+	return node.left.find(key, value)
 }

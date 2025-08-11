@@ -134,6 +134,7 @@ func TestFind_Node(t *testing.T) {
 	require.NoError(t, root.insertInOrder(30, "thirty"))
 	require.NoError(t, root.insertInOrder(5, "five"))
 	require.NoError(t, root.insertInOrder(15, "fifteen"))
+	require.NoError(t, root.insertInOrder(15, "fifteen_v2"))
 
 	testCases := []struct {
 		name        string
@@ -147,6 +148,7 @@ func TestFind_Node(t *testing.T) {
 		{"find middle node", 10, "ten", true, 10, "ten"},
 		{"find leaf node", 5, "five", true, 5, "five"},
 		{"find another leaf", 15, "fifteen", true, 15, "fifteen"},
+		{"find another leaf", 15, "fifteen_v2", true, 15, "fifteen_v2"},
 		{"find non-existent node", 99, "ninety-nine", false, 0, ""},
 		{"find existing key, wrong value", 10, "not-ten", false, 0, ""},
 	}
