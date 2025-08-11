@@ -43,13 +43,13 @@ func TestGetHash(t *testing.T) {
 		expectErr     bool
 		expectedError error
 	}{
-		// {"same strings", "hello", "hello", true, false, nil},
-		// {"different strings", "hello", "world", false, false, nil},
-		// {"same ints", 123, 123, true, false, nil},
-		// {"different ints", 123, 456, false, false, nil},
-		// {"same float64s", 123.456, 123.456, true, false, nil},
+		{"same strings", "hello", "hello", true, false, nil},
+		{"different strings", "hello", "world", false, false, nil},
+		{"same ints", 123, 123, true, false, nil},
+		{"different ints", 123, 456, false, false, nil},
+		{"same float64s", 123.456, 123.456, true, false, nil},
 		{"different float64s", 123.456, 987.654, false, false, nil},
-		// {"unsupported type", true, false, false, true, ErrorUnsupportedValueType},
+		{"unsupported type", true, false, false, true, ErrorUnsupportedValueType},
 	}
 
 	for _, tc := range testCases {
