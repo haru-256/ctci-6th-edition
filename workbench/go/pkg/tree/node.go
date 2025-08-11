@@ -57,60 +57,98 @@ func (node *Node[K, V]) insertInOrder(key K, value V) error {
 }
 
 // delete removes a node with the specified key and value from the binary search tree.
-// It returns the new root of the subtree after deletion and an error if the operation fails.
-// For nodes with two children, it replaces the node with its in-order successor.
-// Returns ErrorNodeNotFound if the target node is not found.
+// It performs a recursive search and deletion while maintaining BST properties and parent relationships.
+// The method handles four cases:
+// 1. Target is in left subtree (key < node.key)
+// 2. Target is in right subtree (key > node.key)
+// 3. Same key but different value (searches left subtree for duplicates)
+// 4. Exact match found (delegates to deleteCurrentNode for removal)
+// Returns the new root of the subtree after deletion and ErrorNodeNotFound if target not found.
 func (node *Node[K, V]) delete(key K, value V) (*Node[K, V], error) {
 	if node == nil {
 		return nil, ErrorNodeNotFound
 	}
 
-	if key < node.key {
-		_node, err := node.left.delete(key, value)
+	switch {
+	case key < node.key:
+		newLeft, err := node.left.delete(key, value)
 		if err != nil {
 			return nil, err
 		}
-		node.left = _node
-		if node.left != nil {
-			node.left.parent = node
-		}
-	} else if key > node.key {
-		_node, err := node.right.delete(key, value)
+		return node.updateChild(newLeft, true), nil
+
+	case key > node.key:
+		newRight, err := node.right.delete(key, value)
 		if err != nil {
 			return nil, err
 		}
-		node.right = _node
-		if node.right != nil {
-			node.right.parent = node
-		}
-	} else if node.value == value { // key == node.key
-		// Delete this node
-		if node.left == nil {
-			return node.right, nil
-		} else if node.right == nil {
-			return node.left, nil
-		} else {
-			minNode, err := node.right.findMin()
-			if err != nil {
-				return nil, err
-			}
-			node.key = minNode.key
-			node.value = minNode.value
-			_node, err := node.right.delete(minNode.key, minNode.value)
-			if err != nil {
-				return nil, err
-			}
-			node.right = _node
-			return node, nil
-		}
-	} else { // key == node.key but value is different
+		return node.updateChild(newRight, false), nil
+
+	case node.value != value:
 		// Same key but different value, search in left subtree
-		_node, err := node.left.delete(key, value)
+		newLeft, err := node.left.delete(key, value)
 		if err != nil {
 			return nil, err
 		}
-		node.left = _node
+		return node.updateChild(newLeft, true), nil
+
+	default:
+		// Found the node to delete (key == node.key && value == node.value)
+		return node.deleteCurrentNode()
 	}
+}
+
+// updateChild updates either the left or right child of the current node and maintains parent relationships.
+// If isLeft is true, updates the left child; otherwise updates the right child.
+// The parent pointer of the new child is automatically set to point to the current node.
+// Returns the current node to support method chaining.
+func (node *Node[K, V]) updateChild(child *Node[K, V], isLeft bool) *Node[K, V] {
+	if isLeft {
+		node.left = child
+	} else {
+		node.right = child
+	}
+	if child != nil {
+		child.parent = node
+	}
+	return node
+}
+
+// deleteCurrentNode handles the deletion of the current node when it matches the target key and value.
+// It implements the three standard BST deletion cases:
+// 1. Node with no children (leaf): simply return nil
+// 2. Node with one child: return the child to replace this node
+// 3. Node with two children: replace with in-order successor and delete the successor
+// This method assumes the current node is the target to be deleted.
+func (node *Node[K, V]) deleteCurrentNode() (*Node[K, V], error) {
+	// Case 1: No left child
+	if node.left == nil {
+		return node.right, nil
+	}
+
+	// Case 2: No right child
+	if node.right == nil {
+		return node.left, nil
+	}
+
+	// Case 3: Two children - replace with in-order successor
+	successor, err := node.right.findMin()
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy successor's data to current node
+	node.key = successor.key
+	node.value = successor.value
+
+	// Delete the successor from right subtree
+	newRight, err := node.right.delete(successor.key, successor.value)
+	if err != nil {
+		return nil, err
+	}
+
+	node.updateChild(newRight, false)
+
 	return node, nil
 }
 
