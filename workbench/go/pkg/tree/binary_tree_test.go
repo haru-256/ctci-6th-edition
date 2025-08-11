@@ -78,7 +78,7 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("insert first element", func(t *testing.T) {
-		err := tree.InsertInOrder("apple")
+		err = tree.InsertInOrder("apple")
 		require.NoError(t, err)
 		assert.Equal(t, 1, tree.Size())
 		require.NotNil(t, tree.root)
@@ -91,7 +91,7 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 		require.NoError(t, err)
 		values := []string{"apple", "orange", "banana", "grape", "pineapple"}
 		for i, v := range values {
-			err := tree.InsertInOrder(v)
+			err = tree.InsertInOrder(v)
 			require.NoError(t, err)
 			assert.Equal(t, i+1, tree.Size())
 		}
@@ -99,7 +99,8 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 		// Find all inserted elements
 		for _, v := range values {
 			t.Run("find_"+v, func(t *testing.T) {
-				foundNode, err := tree.Find(v)
+				var foundNode *Node[uint64, string]
+				foundNode, err = tree.Find(v)
 				assert.NoError(t, err)
 				assert.NotNil(t, foundNode)
 				if foundNode != nil {
@@ -110,22 +111,26 @@ func TestBinaryTree_InsertAndFind(t *testing.T) {
 	})
 
 	t.Run("find non-existent", func(t *testing.T) {
-		foundNode, err := tree.Find("watermelon")
+		var foundNode *Node[uint64, string]
+		foundNode, err = tree.Find("watermelon")
 		assert.NoError(t, err)
 		assert.Nil(t, foundNode)
 	})
 
 	t.Run("find in empty tree", func(t *testing.T) {
-		emptyTree, err := NewBinaryTree[string]()
+		var emptyTree *BinaryTree[string]
+		emptyTree, err = NewBinaryTree[string]()
 		require.NoError(t, err)
-		node, err := emptyTree.Find("anything") // Ensure no panic on empty tree
+		var node *Node[uint64, string]
+		node, err = emptyTree.Find("anything") // Ensure no panic on empty tree
 		assert.Error(t, err)
 		assert.Equal(t, ErrorNodeIsNil, err)
 		assert.Nil(t, node)
 	})
 
 	t.Run("insert unsupported type", func(t *testing.T) {
-		errorTree, err := NewBinaryTree[any]()
+		var errorTree *BinaryTree[any]
+		errorTree, err = NewBinaryTree[any]()
 		require.NoError(t, err)
 		err = errorTree.InsertInOrder(true) // bool is unsupported
 		assert.ErrorIs(t, err, ErrorUnsupportedValueType)

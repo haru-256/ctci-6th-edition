@@ -18,6 +18,8 @@ linters:
   settings:
     govet:
       enable-all: true
+      disable:
+        - fieldalignment
       settings:
         shadow:
           strict: true
@@ -25,6 +27,12 @@ linters:
       min-complexity: 30
     misspell:
       locale: US
+
+  # exclusions:
+  #   rules:
+  #     - path: _test\.go
+  #       linters:
+  #         - govet
 
 formatters:
   enable:
