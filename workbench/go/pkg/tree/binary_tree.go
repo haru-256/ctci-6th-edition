@@ -80,13 +80,13 @@ func (tree *BinaryTree[V]) getHash(value V) (uint64, error) {
 	var b []byte
 	switch v := any(value).(type) {
 	case int:
-		buf := make([]byte, binary.MaxVarintLen64)
-		n := binary.PutVarint(buf, int64(v))
+		var buf [binary.MaxVarintLen64]byte
+		n := binary.PutVarint(buf[:], int64(v))
 		b = buf[:n]
 	case float64:
-		buf := math.Float64bits(v)
-		b = make([]byte, 8)
-		binary.LittleEndian.PutUint64(b, buf)
+		var buf [8]byte
+		binary.BigEndian.PutUint64(buf[:], math.Float64bits(v))
+		b = buf[:]
 	case string:
 		b = []byte(v)
 	default:
