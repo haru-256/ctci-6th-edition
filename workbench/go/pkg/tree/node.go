@@ -71,12 +71,18 @@ func (node *Node[K, V]) delete(key K, value V) (*Node[K, V], error) {
 			return nil, err
 		}
 		node.left = _node
+		if node.left != nil {
+			node.left.parent = node
+		}
 	} else if key > node.key {
 		_node, err := node.right.delete(key, value)
 		if err != nil {
 			return nil, err
 		}
 		node.right = _node
+		if node.right != nil {
+			node.right.parent = node
+		}
 	} else if node.value == value { // key == node.key
 		// このノードを削除
 		if node.left == nil {

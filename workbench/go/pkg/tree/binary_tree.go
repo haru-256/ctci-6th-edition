@@ -35,16 +35,17 @@ type BinaryTree[V comparable] struct {
 // NewBinaryTree creates and returns a new empty BinaryTree.
 // The tree is initialized with no root node and zero size.
 func NewBinaryTree[V comparable]() (*BinaryTree[V], error) {
-	tree := &BinaryTree[V]{
+	return &BinaryTree[V]{
 		root: nil,
 		size: 0,
-	}
-	return tree, nil
+	}, nil
 }
 
 // Size returns the total number of nodes currently in the tree.
 // This method is thread-safe.
 func (tree *BinaryTree[V]) Size() int {
+	tree.mu.RLock()
+	defer tree.mu.RUnlock()
 	return tree.size
 }
 
