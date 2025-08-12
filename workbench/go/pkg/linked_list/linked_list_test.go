@@ -363,15 +363,11 @@ func TestLinkedList_Delete(t *testing.T) {
 
 // collectValues returns all values in the list from head to tail
 func collectValues[T comparable](list *LinkedList[T]) []T {
-	var values []T
+	values := []T{}
 	current := list.Head
 	for current != nil {
 		values = append(values, current.Value)
 		current = current.Next
-	}
-	// Return empty slice instead of nil for consistent comparison
-	if values == nil {
-		return []T{}
 	}
 	return values
 }
