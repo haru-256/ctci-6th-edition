@@ -95,5 +95,10 @@ func (l *LinkedList[T]) Delete(value T) error {
 	} else {
 		l.Tail = node.Prev
 	}
+
+	// Help GC by breaking references from the deleted node.
+	node.Prev = nil
+	node.Next = nil
+
 	return nil
 }
