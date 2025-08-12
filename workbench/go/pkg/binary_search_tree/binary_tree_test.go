@@ -1,5 +1,5 @@
-// Package tree provides a generic binary search tree implementation.
-package tree
+// package binary_search_tree provides a generic binary search tree implementation.
+package binary_search_tree
 
 import (
 	"testing"
