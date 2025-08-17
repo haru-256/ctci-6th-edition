@@ -37,7 +37,7 @@ type HashChainTable[T comparable] struct {
 	// Table is an array of linked lists, where each bucket can contain multiple values
 	Table []*l.LinkedList[T]
 	// MaxSize is the maximum number of buckets in the hash table
-	MaxSize int64
+MaxSize int
 	// size tracks the total number of elements currently stored in the hash table
 	size int
 	// mu provides thread-safe access to the hash table
