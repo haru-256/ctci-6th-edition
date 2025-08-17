@@ -48,11 +48,15 @@ type HashChainTable[T comparable] struct {
 // The maxSize parameter determines the number of buckets in the hash table.
 // All buckets are initially empty (nil).
 func NewHashChainTable[T comparable](maxSize int64) *HashChainTable[T] {
+	if maxSize <= 0 {
+		panic("hashtable: maxSize must be positive")
+	}
 	return &HashChainTable[T]{
 		Table:   make([]*l.LinkedList[T], maxSize),
 		MaxSize: maxSize,
 		size:    0,
 	}
+}
 }
 
 // Size returns the total number of elements currently stored in the hash table.
