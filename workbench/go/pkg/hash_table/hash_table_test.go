@@ -398,61 +398,33 @@ func TestHashChainTable_Concurrency(t *testing.T) {
 	}
 }
 
-func TestHashChainTable_GetHash(t *testing.T) {
-	tests := []struct {
-		name      string
-		value     interface{}
-		expectErr bool
-	}{
-		{"hash string", "hello", false},
-		{"hash int", 42, false},
-		{"hash float64", 3.14, false},
-		{"hash unsupported bool", true, true},
-	}
+func testGetHash[T comparable](t *testing.T, value T, expectErr bool) {
+	t.Helper()
+	table := NewHashChainTable[T](10)
+	hash, err := table.getHash(value)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			switch v := tt.value.(type) {
-			case string:
-				table := NewHashChainTable[string](10)
-				hash, err := table.getHash(v)
-				if tt.expectErr {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-					assert.NotZero(t, hash)
-				}
-			case int:
-				table := NewHashChainTable[int](10)
-				hash, err := table.getHash(v)
-				if tt.expectErr {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-					assert.NotZero(t, hash)
-				}
-			case float64:
-				table := NewHashChainTable[float64](10)
-				hash, err := table.getHash(v)
-				if tt.expectErr {
-					assert.Error(t, err)
-				} else {
-					assert.NoError(t, err)
-					assert.NotZero(t, hash)
-				}
-			case bool:
-				table := NewHashChainTable[bool](10)
-				hash, err := table.getHash(v)
-				if tt.expectErr {
-					assert.ErrorIs(t, err, ErrorUnsupportedValueType)
-					assert.Zero(t, hash)
-				} else {
-					assert.NoError(t, err)
-					assert.NotZero(t, hash)
-				}
-			}
-		})
+	if expectErr {
+		assert.ErrorIs(t, err, ErrorUnsupportedValueType)
+		assert.Zero(t, hash)
+	} else {
+		assert.NoError(t, err)
+		assert.NotZero(t, hash)
 	}
+}
+
+func TestHashChainTable_GetHash(t *testing.T) {
+	t.Run("hash string", func(t *testing.T) {
+		testGetHash(t, "hello", false)
+	})
+	t.Run("hash int", func(t *testing.T) {
+		testGetHash(t, 42, false)
+	})
+	t.Run("hash float64", func(t *testing.T) {
+		testGetHash(t, 3.14, false)
+	})
+	t.Run("hash unsupported bool", func(t *testing.T) {
+		testGetHash(t, true, true)
+	})
 }
 
 func TestHashChainTable_HashConsistency(t *testing.T) {
