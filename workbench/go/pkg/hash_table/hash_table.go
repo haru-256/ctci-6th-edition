@@ -1,5 +1,5 @@
 // Package hash_table provides a thread-safe hash table implementation using chaining for collision resolution.
-package hash_table
+package hashtable
 
 import (
 	"encoding/binary"
