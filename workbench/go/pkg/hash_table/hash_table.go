@@ -128,7 +128,7 @@ func (table *HashChainTable[T]) Delete(value T) error {
 		return nil
 	}
 
-	if err := table.Table[index].Delete(value); err != nil {
+	if err = table.Table[index].Delete(value); err != nil {
 		return err
 	}
 

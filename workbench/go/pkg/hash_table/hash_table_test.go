@@ -3,6 +3,7 @@ package hash_table
 import (
 	"testing"
 
+	l "github.com/haru-256/ctci-6th-edition/pkg/linked_list"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,101 +82,117 @@ func TestHashChainTable_Size(t *testing.T) {
 	}
 }
 
-func TestHashChainTable_Insert(t *testing.T) {
+func TestHashChainTable_Insert_Strings(t *testing.T) {
 	tests := []struct {
 		name           string
 		maxSize        int64
-		insertValues   []interface{}
+		insertValues   []string
 		expectedErrors []error
 		finalSize      int
 	}{
 		{
 			name:           "insert strings",
 			maxSize:        10,
-			insertValues:   []interface{}{"apple", "banana", "cherry"},
+			insertValues:   []string{"apple", "banana", "cherry"},
 			expectedErrors: []error{nil, nil, nil},
 			finalSize:      3,
 		},
 		{
-			name:           "insert integers",
+			name:           "insert duplicate strings",
 			maxSize:        5,
-			insertValues:   []interface{}{1, 2, 3, 4, 5},
-			expectedErrors: []error{nil, nil, nil, nil, nil},
-			finalSize:      5,
-		},
-		{
-			name:           "insert floats",
-			maxSize:        3,
-			insertValues:   []interface{}{1.1, 2.2, 3.3},
-			expectedErrors: []error{nil, nil, nil},
-			finalSize:      3,
-		},
-		{
-			name:           "insert duplicate",
-			maxSize:        5,
-			insertValues:   []interface{}{"apple", "banana", "apple"},
+			insertValues:   []string{"apple", "banana", "apple"},
 			expectedErrors: []error{nil, nil, ErrorAlreadyExists},
 			finalSize:      2,
-		},
-		{
-			name:           "unsupported type",
-			maxSize:        5,
-			insertValues:   []interface{}{true}, // bool is not supported
-			expectedErrors: []error{ErrorUnsupportedValueType},
-			finalSize:      0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			switch tt.insertValues[0].(type) {
-			case string:
-				table := NewHashChainTable[string](tt.maxSize)
-				for i, value := range tt.insertValues {
-					err := table.Insert(value.(string))
-					if tt.expectedErrors[i] != nil {
-						assert.ErrorIs(t, err, tt.expectedErrors[i])
-					} else {
-						assert.NoError(t, err)
-					}
+			table := NewHashChainTable[string](tt.maxSize)
+			for i, value := range tt.insertValues {
+				err := table.Insert(value)
+				if tt.expectedErrors[i] != nil {
+					assert.ErrorIs(t, err, tt.expectedErrors[i])
+				} else {
+					assert.NoError(t, err)
 				}
-				assert.Equal(t, tt.finalSize, table.Size())
-			case int:
-				table := NewHashChainTable[int](tt.maxSize)
-				for i, value := range tt.insertValues {
-					err := table.Insert(value.(int))
-					if tt.expectedErrors[i] != nil {
-						assert.ErrorIs(t, err, tt.expectedErrors[i])
-					} else {
-						assert.NoError(t, err)
-					}
-				}
-				assert.Equal(t, tt.finalSize, table.Size())
-			case float64:
-				table := NewHashChainTable[float64](tt.maxSize)
-				for i, value := range tt.insertValues {
-					err := table.Insert(value.(float64))
-					if tt.expectedErrors[i] != nil {
-						assert.ErrorIs(t, err, tt.expectedErrors[i])
-					} else {
-						assert.NoError(t, err)
-					}
-				}
-				assert.Equal(t, tt.finalSize, table.Size())
-			case bool:
-				table := NewHashChainTable[bool](tt.maxSize)
-				for i, value := range tt.insertValues {
-					err := table.Insert(value.(bool))
-					if tt.expectedErrors[i] != nil {
-						assert.ErrorIs(t, err, tt.expectedErrors[i])
-					} else {
-						assert.NoError(t, err)
-					}
-				}
-				assert.Equal(t, tt.finalSize, table.Size())
 			}
+			assert.Equal(t, tt.finalSize, table.Size())
 		})
 	}
+}
+
+func TestHashChainTable_Insert_Integers(t *testing.T) {
+	tests := []struct {
+		name           string
+		maxSize        int64
+		insertValues   []int
+		expectedErrors []error
+		finalSize      int
+	}{
+		{
+			name:           "insert integers",
+			maxSize:        5,
+			insertValues:   []int{1, 2, 3, 4, 5},
+			expectedErrors: []error{nil, nil, nil, nil, nil},
+			finalSize:      5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			table := NewHashChainTable[int](tt.maxSize)
+			for i, value := range tt.insertValues {
+				err := table.Insert(value)
+				if tt.expectedErrors[i] != nil {
+					assert.ErrorIs(t, err, tt.expectedErrors[i])
+				} else {
+					assert.NoError(t, err)
+				}
+			}
+			assert.Equal(t, tt.finalSize, table.Size())
+		})
+	}
+}
+
+func TestHashChainTable_Insert_Floats(t *testing.T) {
+	tests := []struct {
+		name           string
+		maxSize        int64
+		insertValues   []float64
+		expectedErrors []error
+		finalSize      int
+	}{
+		{
+			name:           "insert floats",
+			maxSize:        3,
+			insertValues:   []float64{1.1, 2.2, 3.3},
+			expectedErrors: []error{nil, nil, nil},
+			finalSize:      3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			table := NewHashChainTable[float64](tt.maxSize)
+			for i, value := range tt.insertValues {
+				err := table.Insert(value)
+				if tt.expectedErrors[i] != nil {
+					assert.ErrorIs(t, err, tt.expectedErrors[i])
+				} else {
+					assert.NoError(t, err)
+				}
+			}
+			assert.Equal(t, tt.finalSize, table.Size())
+		})
+	}
+}
+
+func TestHashChainTable_Insert_UnsupportedType(t *testing.T) {
+	table := NewHashChainTable[bool](5)
+	err := table.Insert(true)
+	assert.ErrorIs(t, err, ErrorUnsupportedValueType)
+	assert.Equal(t, 0, table.Size())
 }
 
 func TestHashChainTable_Search(t *testing.T) {
@@ -332,7 +349,8 @@ func TestHashChainTable_Delete(t *testing.T) {
 
 			// Verify the value is actually deleted
 			if !tt.expectError && tt.finalSize < len(tt.insertValues) {
-				node, err := table.Search(tt.deleteValue)
+				var node *l.Node[string]
+				node, err = table.Search(tt.deleteValue)
 				assert.NoError(t, err)
 				assert.Nil(t, node)
 			}
