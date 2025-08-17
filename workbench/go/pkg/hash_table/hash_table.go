@@ -37,7 +37,7 @@ type HashChainTable[T comparable] struct {
 	// Table is an array of linked lists, where each bucket can contain multiple values
 	Table []*l.LinkedList[T]
 	// MaxSize is the maximum number of buckets in the hash table
-MaxSize int
+	MaxSize int
 	// size tracks the total number of elements currently stored in the hash table
 	size int
 	// mu provides thread-safe access to the hash table
@@ -47,7 +47,7 @@ MaxSize int
 // NewHashChainTable creates and returns a new hash table with the specified maximum size.
 // The maxSize parameter determines the number of buckets in the hash table.
 // All buckets are initially empty (nil).
-func NewHashChainTable[T comparable](maxSize int64) *HashChainTable[T] {
+func NewHashChainTable[T comparable](maxSize int) *HashChainTable[T] {
 	if maxSize <= 0 {
 		panic("hashtable: maxSize must be positive")
 	}
@@ -56,7 +56,6 @@ func NewHashChainTable[T comparable](maxSize int64) *HashChainTable[T] {
 		MaxSize: maxSize,
 		size:    0,
 	}
-}
 }
 
 // Size returns the total number of elements currently stored in the hash table.

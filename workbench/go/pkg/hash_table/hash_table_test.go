@@ -1,6 +1,7 @@
 package hashtable
 
 import (
+	"sync"
 	"testing"
 
 	l "github.com/haru-256/ctci-6th-edition/pkg/linked_list"
@@ -11,7 +12,7 @@ import (
 func TestNewHashChainTable(t *testing.T) {
 	tests := []struct {
 		name    string
-		maxSize int64
+		maxSize int
 	}{
 		{"small table", 5},
 		{"medium table", 100},
@@ -25,10 +26,10 @@ func TestNewHashChainTable(t *testing.T) {
 			assert.NotNil(t, table)
 			assert.Equal(t, tt.maxSize, table.MaxSize)
 			assert.Equal(t, 0, table.Size())
-			assert.Equal(t, int(tt.maxSize), len(table.Table))
+			assert.Equal(t, tt.maxSize, len(table.Table))
 
 			// Verify all buckets are initially nil
-			for i := int64(0); i < tt.maxSize; i++ {
+			for i := int(0); i < tt.maxSize; i++ {
 				assert.Nil(t, table.Table[i])
 			}
 		})
@@ -38,7 +39,7 @@ func TestNewHashChainTable(t *testing.T) {
 func TestHashChainTable_Size(t *testing.T) {
 	tests := []struct {
 		name         string
-		maxSize      int64
+		maxSize      int
 		insertValues []string
 		expectedSize int
 	}{
@@ -85,7 +86,7 @@ func TestHashChainTable_Size(t *testing.T) {
 func TestHashChainTable_Insert_Strings(t *testing.T) {
 	tests := []struct {
 		name           string
-		maxSize        int64
+		maxSize        int
 		insertValues   []string
 		expectedErrors []error
 		finalSize      int
@@ -125,7 +126,7 @@ func TestHashChainTable_Insert_Strings(t *testing.T) {
 func TestHashChainTable_Insert_Integers(t *testing.T) {
 	tests := []struct {
 		name           string
-		maxSize        int64
+		maxSize        int
 		insertValues   []int
 		expectedErrors []error
 		finalSize      int
@@ -158,7 +159,7 @@ func TestHashChainTable_Insert_Integers(t *testing.T) {
 func TestHashChainTable_Insert_Floats(t *testing.T) {
 	tests := []struct {
 		name           string
-		maxSize        int64
+		maxSize        int
 		insertValues   []float64
 		expectedErrors []error
 		finalSize      int
@@ -198,7 +199,7 @@ func TestHashChainTable_Insert_UnsupportedType(t *testing.T) {
 func TestHashChainTable_Search(t *testing.T) {
 	tests := []struct {
 		name          string
-		maxSize       int64
+		maxSize       int
 		insertValues  []string
 		searchValue   string
 		expectFound   bool
@@ -277,7 +278,7 @@ func TestHashChainTable_Search_UnsupportedType(t *testing.T) {
 func TestHashChainTable_Delete(t *testing.T) {
 	tests := []struct {
 		name          string
-		maxSize       int64
+		maxSize       int
 		insertValues  []string
 		deleteValue   string
 		expectError   bool
@@ -370,24 +371,20 @@ func TestHashChainTable_Delete_UnsupportedType(t *testing.T) {
 func TestHashChainTable_Concurrency(t *testing.T) {
 	table := NewHashChainTable[int](100)
 
-	// Test concurrent insertions
-	done := make(chan bool)
-
+	var wg sync.WaitGroup
+	wg.Add(10)
 	// Insert values concurrently
 	for i := 0; i < 10; i++ {
 		go func(start int) {
+			defer wg.Done()
 			for j := start * 10; j < (start+1)*10; j++ {
 				err := table.Insert(j)
 				assert.NoError(t, err)
 			}
-			done <- true
 		}(i)
 	}
-
 	// Wait for all goroutines to complete
-	for i := 0; i < 10; i++ {
-		<-done
-	}
+	wg.Wait()
 
 	// Verify all values were inserted
 	assert.Equal(t, 100, table.Size())
