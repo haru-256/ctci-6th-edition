@@ -285,12 +285,13 @@ func TestHashChainTable_Delete(t *testing.T) {
 		finalSize     int
 	}{
 		{
-			name:         "delete from empty table",
-			maxSize:      10,
-			insertValues: []string{},
-			deleteValue:  "apple",
-			expectError:  false,
-			finalSize:    0,
+			name:          "delete from empty table",
+			maxSize:       10,
+			insertValues:  []string{},
+			deleteValue:   "apple",
+			expectError:   true, // Delete returns ErrorNodeNotFound for non-existing values
+			expectedError: ErrorNodeNotFound,
+			finalSize:     0,
 		},
 		{
 			name:         "delete existing value",
@@ -301,12 +302,13 @@ func TestHashChainTable_Delete(t *testing.T) {
 			finalSize:    2,
 		},
 		{
-			name:         "delete non-existing value",
-			maxSize:      10,
-			insertValues: []string{"apple", "banana", "cherry"},
-			deleteValue:  "grape",
-			expectError:  false, // Delete returns nil for non-existing values
-			finalSize:    3,
+			name:          "delete non-existing value",
+			maxSize:       10,
+			insertValues:  []string{"apple", "banana", "cherry"},
+			deleteValue:   "grape",
+			expectError:   true, // Delete returns ErrorNodeNotFound for non-existing values
+			expectedError: ErrorNodeNotFound,
+			finalSize:     3,
 		},
 		{
 			name:         "delete with collision",

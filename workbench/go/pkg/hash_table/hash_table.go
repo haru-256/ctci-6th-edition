@@ -17,6 +17,8 @@ var (
 	ErrorAlreadyExists = errors.New("value already exists in the hash table")
 	// ErrorUnsupportedValueType is returned when attempting to hash a value of an unsupported type.
 	ErrorUnsupportedValueType = errors.New("unsupported value type for hashing")
+	// ErrorNodeNotFound is returned when a node is not found in the hash table.
+	ErrorNodeNotFound = errors.New("node not found in the hash table")
 )
 
 // hasherPool is a pool of FNV-1a hashers to avoid allocations in getHash.
@@ -111,7 +113,7 @@ func (table *HashChainTable[T]) Search(value T) (*l.Node[T], error) {
 
 // Delete removes a value from the hash table.
 // If the value exists, it is removed and the size is decremented.
-// If the value does not exist, the operation succeeds without error.
+// If the value does not exist, the operation occurs ErrorNodeNotFound.
 // If the value type is not supported for hashing, it returns ErrorUnsupportedValueType.
 // This method is thread-safe and uses a write lock for concurrent access.
 func (table *HashChainTable[T]) Delete(value T) error {
@@ -125,7 +127,7 @@ func (table *HashChainTable[T]) Delete(value T) error {
 
 	index := hash % uint64(table.MaxSize)
 	if table.Table[index] == nil {
-		return nil
+		return ErrorNodeNotFound
 	}
 
 	if err = table.Table[index].Delete(value); err != nil {
@@ -133,6 +135,9 @@ func (table *HashChainTable[T]) Delete(value T) error {
 	}
 
 	table.size--
+	if table.Table[index].Head == nil { // if list is empty, remove bucket for garbage collection
+		table.Table[index] = nil
+	}
 	return nil
 }
 
