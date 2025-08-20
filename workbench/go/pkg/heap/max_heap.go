@@ -97,6 +97,7 @@ func (h *MaxHeap[K, V]) Pop() (*Node[K, V], error) {
 	// Move the last element to the root
 	h.values[0] = h.values[lastIndex]
 	// Reduce the slice length by one
+	h.values[lastIndex] = nil // Avoid memory leak
 	h.values = h.values[:lastIndex]
 
 	// Restore heap property by moving the new root down (down-heap)
