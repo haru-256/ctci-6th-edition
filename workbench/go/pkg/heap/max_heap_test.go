@@ -2,6 +2,8 @@ package heap
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewMaxHeap(t *testing.T) {
@@ -112,7 +114,8 @@ func TestMaxHeap_Pop(t *testing.T) {
 	// Pop should return elements in descending order
 	expectedKeys := []int{20, 15, 10, 5}
 	for i, expectedKey := range expectedKeys {
-		node, err := heap.Pop()
+		var node *Node[int, string]
+		node, err = heap.Pop()
 		if err != nil {
 			t.Fatalf("Unexpected error at pop %d: %v", i, err)
 		}
@@ -446,7 +449,8 @@ func BenchmarkMaxHeap_Pop(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		heap.Pop()
+		_, err := heap.Pop()
+		require.NoError(b, err, "Pop should not return an error")
 	}
 }
 
