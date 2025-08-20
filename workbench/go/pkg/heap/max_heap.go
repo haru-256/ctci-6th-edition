@@ -8,7 +8,7 @@ import (
 )
 
 // ErrorIsEmpty is returned when attempting to perform operations on an empty heap.
-var ErrorIsEmpty = fmt.Errorf("heap is empty")
+var ErrorIsEmpty = errors.New("heap is empty")
 
 // MaxHeap represents a max heap data structure that maintains elements in heap order.
 // The heap property ensures that the parent node is always greater than or equal to its children.
