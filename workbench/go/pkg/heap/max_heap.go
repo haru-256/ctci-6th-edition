@@ -103,7 +103,7 @@ func (h *MaxHeap[K, V]) Pop() (*Node[K, V], error) {
 	// Move the last element to the root
 	h.values[0] = h.values[lastIndex]
 	// Reduce the slice length by one
-	h.values[lastIndex] = nil // Avoid memory leak 長さ（Length）」を lastIndex に変更するだけです。元となっている配列や、スライスのCapacityには何の変化がないため、nilを設定してガーベジコレクションの対象にします。
+	h.values[lastIndex] = nil // Avoid memory leak by setting to nil for garbage collection
 	h.values = h.values[:lastIndex]
 
 	// Restore heap property by moving the new root down (down-heap)
