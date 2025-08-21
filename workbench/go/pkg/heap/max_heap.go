@@ -4,7 +4,7 @@ package heap
 
 import (
 	"cmp"
-	"fmt"
+	"errors"
 )
 
 // ErrorIsEmpty is returned when attempting to perform operations on an empty heap.
@@ -64,19 +64,25 @@ func (h *MaxHeap[K, V]) downHeap(index int) {
 // downHeapWithSize moves the element at the given index down the heap until the heap property is satisfied.
 // The heapSize parameter allows limiting the effective heap size, which is useful during heap sort.
 func (h *MaxHeap[K, V]) downHeapWithSize(index int, heapSize int) {
-	l := Left(index)
-	r := Right(index)
-	largest := index
-	if l < heapSize && h.values[l].Key > h.values[largest].Key {
-		largest = l
-	}
-	if r < heapSize && h.values[r].Key > h.values[largest].Key {
-		largest = r
-	}
+	// NOTE: The recursive implementation of downHeapWithSize is clear, but an iterative version can be more performant by avoiding function call overhead and eliminates the risk of stack overflow on extremely deep heaps. An iterative approach is often preferred for heap operations in production-grade code.
+	for {
+		l := Left(index)
+		r := Right(index)
+		largest := index
 
-	if largest != index {
+		if l < heapSize && h.values[l].Key > h.values[largest].Key {
+			largest = l
+		}
+		if r < heapSize && h.values[r].Key > h.values[largest].Key {
+			largest = r
+		}
+
+		if largest == index {
+			break // Heap property is satisfied.
+		}
+
 		h.swap(index, largest)
-		h.downHeapWithSize(largest, heapSize)
+		index = largest // Continue sifting down from the new position.
 	}
 }
 
@@ -97,7 +103,7 @@ func (h *MaxHeap[K, V]) Pop() (*Node[K, V], error) {
 	// Move the last element to the root
 	h.values[0] = h.values[lastIndex]
 	// Reduce the slice length by one
-	h.values[lastIndex] = nil // Avoid memory leak
+	h.values[lastIndex] = nil // Avoid memory leak 長さ（Length）」を lastIndex に変更するだけです。元となっている配列や、スライスのCapacityには何の変化がないため、nilを設定してガーベジコレクションの対象にします。
 	h.values = h.values[:lastIndex]
 
 	// Restore heap property by moving the new root down (down-heap)
