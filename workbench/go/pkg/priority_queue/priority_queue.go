@@ -122,13 +122,13 @@ func (pq *PriorityQueue[T]) Update(item T, priority int) error {
 
 	targetTask.Priority = priority
 
-	if toLessThan {
-		// Priority increased (was less, now higher), move up towards root
-		pq.heap.DownHeap(targetIdx)
-	} else if toLargerThan {
-		// Priority decreased (was more, now lower), move down towards leaves
-		pq.heap.UpHeap(targetIdx)
-	}
+ 	if toLessThan {
+ 		// Priority decreased (was more, now lower), move down towards leaves
+ 		pq.heap.DownHeap(targetIdx)
+ 	} else if toLargerThan {
+ 		// Priority increased (was less, now higher), move up towards root
+ 		pq.heap.UpHeap(targetIdx)
+ 	}
 	return nil
 }
 
