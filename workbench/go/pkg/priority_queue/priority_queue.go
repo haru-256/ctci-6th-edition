@@ -101,6 +101,7 @@ func (pq *PriorityQueue[T]) Pop() (*Task[T], error) {
 //		fmt.Println("Task not found in queue")
 //	}
 func (pq *PriorityQueue[T]) Update(item T, priority int) error {
+	// FIXME: The Update method has a time complexity of O(n) due to the linear scan to find the item.
 	var targetTask *Task[T]
 	var targetIdx int
 	for idx, task := range pq.heap.GetItems() {
@@ -122,13 +123,13 @@ func (pq *PriorityQueue[T]) Update(item T, priority int) error {
 
 	targetTask.Priority = priority
 
- 	if toLessThan {
- 		// Priority decreased (was more, now lower), move down towards leaves
- 		pq.heap.DownHeap(targetIdx)
- 	} else if toLargerThan {
- 		// Priority increased (was less, now higher), move up towards root
- 		pq.heap.UpHeap(targetIdx)
- 	}
+	if toLessThan {
+		// Priority decreased (was more, now lower), move down towards leaves
+		pq.heap.DownHeap(targetIdx)
+	} else if toLargerThan {
+		// Priority increased (was less, now higher), move up towards root
+		pq.heap.UpHeap(targetIdx)
+	}
 	return nil
 }
 
