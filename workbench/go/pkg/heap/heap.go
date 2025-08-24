@@ -47,7 +47,9 @@ func (h *Heap[T]) swap(i, j int) {
 }
 
 func (h *Heap[T]) GetItems() []*T {
-	return h.items
+	itemsCopy := make([]*T, len(h.items))
+	copy(itemsCopy, h.items)
+	return itemsCopy
 }
 
 // upHeap moves the element at the given index up the heap until the heap property is satisfied.
