@@ -1,5 +1,6 @@
-// Package heap provides a generic max heap implementation.
-// It supports any comparable key type and allows storing associated values.
+// Package heap provides a generic heap implementation.
+// It supports any comparable type and allows storing elements.
+// The heap can be configured as either a max heap or min heap depending on the comparison function.
 package heap
 
 import (
@@ -10,42 +11,52 @@ import (
 // ErrorIsEmpty is returned when attempting to perform operations on an empty heap.
 var ErrorIsEmpty = errors.New("heap is empty")
 
-// MaxHeap represents a max heap data structure that maintains elements in heap order.
-// The heap property ensures that the parent node is always greater than or equal to its children.
-// K must be an ordered type (supporting comparison operations).
-// V must be a comparable type (supporting equality operations).
-type MaxHeap[K cmp.Ordered, V comparable] struct {
-	values []*Node[K, V]
+// Heap represents a heap data structure that maintains elements in heap order.
+// The heap property is determined by the comparison function provided at creation.
+// For a max heap, the comparison function should return positive when a > b.
+// For a min heap, the comparison function should return positive when a < b.
+// T can be any type.
+type Heap[T any] struct {
+	items []*T
+	cmpFn func(a, b *T) int
 }
 
-// NewMaxHeap creates and returns a new empty max heap.
+// NewHeap creates and returns a new empty heap.
 // The heap is initialized with zero elements and ready for use.
-func NewMaxHeap[K cmp.Ordered, V comparable]() *MaxHeap[K, V] {
-	return &MaxHeap[K, V]{
-		values: []*Node[K, V]{},
+// The cmpFn parameter determines the heap type:
+// - For max heap: return positive when a > b, negative when a < b, zero when equal
+// - For min heap: return positive when a < b, negative when a > b, zero when equal
+func NewHeap[T any](cmpFn func(a, b *T) int) *Heap[T] {
+	return &Heap[T]{
+		items: []*T{},
+		cmpFn: cmpFn,
 	}
 }
 
-// Insert adds a new key-value pair to the heap.
+// Insert adds a new element to the heap.
 // The element is inserted at the end and then moved up to maintain the heap property.
 // Time complexity: O(log n) where n is the number of elements in the heap.
-func (heap *MaxHeap[K, V]) Insert(key K, value V) {
-	heap.values = append(heap.values, &Node[K, V]{Key: key, Value: value})
-	heap.upHeap(heap.Size() - 1)
+func (heap *Heap[T]) Insert(item T) {
+	heap.items = append(heap.items, &item)
+	heap.UpHeap(heap.Size() - 1)
 }
 
 // swap exchanges the elements at indices i and j in the heap.
-func (h *MaxHeap[K, V]) swap(i, j int) {
-	h.values[i], h.values[j] = h.values[j], h.values[i]
+func (h *Heap[T]) swap(i, j int) {
+	h.items[i], h.items[j] = h.items[j], h.items[i]
+}
+
+func (h *Heap[T]) GetItems() []*T {
+	return h.items
 }
 
 // upHeap moves the element at the given index up the heap until the heap property is satisfied.
-// This is used after inserting a new element to maintain the max heap property.
-func (h *MaxHeap[K, V]) upHeap(index int) {
+// This is used after inserting a new element to maintain the heap property.
+func (h *Heap[T]) UpHeap(index int) {
 	for {
 		parentIndex := Parent(index)
-		// Stop if we reach the root, or if parent is greater than or equal to current element
-		if index == 0 || h.values[parentIndex].Key >= h.values[index].Key {
+		// Stop if we reach the root, or if parent satisfies heap property relative to current element
+		if index == 0 || h.cmpFn(h.items[parentIndex], h.items[index]) >= 0 {
 			break
 		}
 		// Swap with parent
@@ -57,23 +68,23 @@ func (h *MaxHeap[K, V]) upHeap(index int) {
 
 // downHeap moves the element at the given index down the heap until the heap property is satisfied.
 // This method uses the current heap size.
-func (h *MaxHeap[K, V]) downHeap(index int) {
+func (h *Heap[T]) DownHeap(index int) {
 	h.downHeapWithSize(index, h.Size())
 }
 
 // downHeapWithSize moves the element at the given index down the heap until the heap property is satisfied.
 // The heapSize parameter allows limiting the effective heap size, which is useful during heap sort.
-func (h *MaxHeap[K, V]) downHeapWithSize(index int, heapSize int) {
+func (h *Heap[T]) downHeapWithSize(index int, heapSize int) {
 	// NOTE: The recursive implementation of downHeapWithSize is clear, but an iterative version can be more performant by avoiding function call overhead and eliminates the risk of stack overflow on extremely deep heaps. An iterative approach is often preferred for heap operations in production-grade code.
 	for {
 		l := Left(index)
 		r := Right(index)
 		largest := index
 
-		if l < heapSize && h.values[l].Key > h.values[largest].Key {
+		if l < heapSize && h.cmpFn(h.items[l], h.items[largest]) > 0 {
 			largest = l
 		}
-		if r < heapSize && h.values[r].Key > h.values[largest].Key {
+		if r < heapSize && h.cmpFn(h.items[r], h.items[largest]) > 0 {
 			largest = r
 		}
 
@@ -86,49 +97,53 @@ func (h *MaxHeap[K, V]) downHeapWithSize(index int, heapSize int) {
 	}
 }
 
-// Pop removes and returns the maximum element (root) from the heap.
+// Pop removes and returns the top element from the heap.
+// For a max heap, this returns the maximum element.
+// For a min heap, this returns the minimum element.
 // After removing the root, the heap property is restored by moving the last element
 // to the root and performing a down-heap operation.
 // Returns ErrorIsEmpty if the heap is empty.
 // Time complexity: O(log n) where n is the number of elements in the heap.
-func (h *MaxHeap[K, V]) Pop() (*Node[K, V], error) {
-	if len(h.values) == 0 {
+func (h *Heap[T]) Pop() (*T, error) {
+	if len(h.items) == 0 {
 		return nil, ErrorIsEmpty
 	}
 
-	// Get the root (maximum value)
-	max := h.values[0]
-	lastIndex := len(h.values) - 1
+	// Get the root (top element)
+	top := h.items[0]
+	lastIndex := len(h.items) - 1
 
 	// Move the last element to the root
-	h.values[0] = h.values[lastIndex]
+	h.items[0] = h.items[lastIndex]
 	// Reduce the slice length by one
-	h.values[lastIndex] = nil // Avoid memory leak by setting to nil for garbage collection
-	h.values = h.values[:lastIndex]
+	h.items[lastIndex] = nil // Avoid memory leak by setting to nil for garbage collection
+	h.items = h.items[:lastIndex]
 
 	// Restore heap property by moving the new root down (down-heap)
-	if len(h.values) > 0 {
-		h.downHeap(0)
+	if len(h.items) > 0 {
+		h.DownHeap(0)
 	}
 
-	return max, nil
+	return top, nil
 }
 
-// Max returns the maximum element (root) from the heap without removing it.
-// This allows peeking at the largest element without modifying the heap.
+// Peek returns the top element from the heap without removing it.
+// For a max heap, this returns the maximum element.
+// For a min heap, this returns the minimum element.
+// This allows peeking at the top element without modifying the heap.
 // Returns ErrorIsEmpty if the heap is empty.
 // Time complexity: O(1).
-func (h *MaxHeap[K, V]) Max() (*Node[K, V], error) {
-	if len(h.values) == 0 {
+func (h *Heap[T]) Peek() (*T, error) {
+	if len(h.items) == 0 {
 		return nil, ErrorIsEmpty
 	}
-	return h.values[0], nil
+	return h.items[0], nil
 }
 
 // Size returns the number of elements currently in the heap.
 // Time complexity: O(1).
-func (h *MaxHeap[K, V]) Size() int {
-	return len(h.values)
+func (h *Heap[T]) Size() int {
+	return len(h.items)
 }
 
 // Left returns the index of the left child of the element at index i.
@@ -152,26 +167,28 @@ func Parent(i int) int {
 	return (i - 1) / 2
 }
 
-// BuildMaxHeap converts an arbitrary array into a max heap.
+// BuildHeap converts an arbitrary array into a heap.
 // This function performs the "heapify" operation by calling downHeap
 // on all non-leaf nodes, starting from the last parent node and working upwards.
+// The heap property (max or min) is determined by the comparison function.
 // Time complexity: O(n) where n is the number of elements in the heap.
-func BuildMaxHeap[K cmp.Ordered, V comparable](heap *MaxHeap[K, V]) {
+func BuildHeap[T any](heap *Heap[T]) {
 	for i := heap.Size()/2 - 1; i >= 0; i-- {
 		heap.downHeapWithSize(i, heap.Size())
 	}
 }
 
-// HeapSort sorts the elements in the heap in ascending order using the heap sort algorithm.
+// HeapSort sorts the elements in the heap using the heap sort algorithm.
 // The algorithm works by:
-// 1. Building a max heap from the input array
-// 2. Repeatedly extracting the maximum element (root) and placing it at the end
+// 1. Building a heap from the input array
+// 2. Repeatedly extracting the top element and placing it at the end
 // 3. Reducing the heap size and restoring the heap property
-// After sorting, the heap's underlying array will contain elements in ascending order.
+// After sorting, the heap's underlying array will contain elements in order
+// determined by the comparison function (ascending for max heap, descending for min heap).
 // Time complexity: O(n log n) where n is the number of elements.
 // Space complexity: O(1) as it sorts in-place.
-func HeapSort[K cmp.Ordered, V comparable](heap *MaxHeap[K, V]) {
-	BuildMaxHeap(heap)
+func HeapSort[T any](heap *Heap[T]) {
+	BuildHeap(heap)
 	heapSize := heap.Size()
 	for i := heapSize - 1; i > 0; i-- {
 		heap.swap(0, i)
@@ -183,7 +200,33 @@ func HeapSort[K cmp.Ordered, V comparable](heap *MaxHeap[K, V]) {
 // Node represents a key-value pair stored in the heap.
 // K is the key type used for comparison and maintaining heap order.
 // V is the value type associated with each key.
-type Node[K cmp.Ordered, V comparable] struct {
+type Node[K cmp.Ordered, V any] struct {
 	Key   K // The key used for heap ordering
 	Value V // The associated value
+}
+
+// NewMaxHeap creates a new max heap for ordered types.
+// This is a convenience function for creating max heaps with ordered types.
+func NewMaxHeap[T cmp.Ordered]() *Heap[T] {
+	return NewHeap(func(a, b *T) int {
+		if *a > *b {
+			return 1
+		} else if *a < *b {
+			return -1
+		}
+		return 0
+	})
+}
+
+// NewMinHeap creates a new min heap for ordered types.
+// This is a convenience function for creating min heaps with ordered types.
+func NewMinHeap[T cmp.Ordered]() *Heap[T] {
+	return NewHeap(func(a, b *T) int {
+		if *a < *b {
+			return 1
+		} else if *a > *b {
+			return -1
+		}
+		return 0
+	})
 }
