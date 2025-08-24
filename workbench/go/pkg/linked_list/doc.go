@@ -98,7 +98,7 @@ The list excels at scenarios where frequent insertion/deletion is needed with kn
 # Traversal Patterns
 
 	list := linked_list.NewLinkedList[string]()
-	
+
 	// Populate list
 	words := []string{"first", "second", "third", "fourth"}
 	for _, word := range words {
@@ -195,12 +195,12 @@ The list excels at scenarios where frequent insertion/deletion is needed with kn
 # Memory Management and Performance
 
 	list := linked_list.NewLinkedList[int]()
-	
+
 	// Insert many elements
 	for i := 0; i < 10000; i++ {
 		list.Prepend(i)
 	}
-	
+
 	// Delete elements (nodes are properly cleaned up)
 	for i := 0; i < 5000; i++ {
 		err := list.Delete(i)
@@ -209,7 +209,7 @@ The list excels at scenarios where frequent insertion/deletion is needed with kn
 			continue
 		}
 	}
-	
+
 	// Remaining elements are still accessible
 	remaining := 0
 	current := list.Head
@@ -230,19 +230,19 @@ Key memory management features:
 The linked list operations can return errors in specific conditions:
 
 	list := linked_list.NewLinkedList[string]()
-	
+
 	// Attempting to delete from empty list
 	err := list.Delete("nonexistent")
 	if errors.Is(err, linked_list.ErrorNodeNotFound) {
 		fmt.Println("Cannot delete from empty list")
 	}
-	
+
 	// Attempting to insert after nil node
 	err = list.Insert("value", nil)
 	if errors.Is(err, linked_list.ErrorNodeIsNil) {
 		fmt.Println("Cannot insert after nil node")
 	}
-	
+
 	// Proper error handling
 	node := list.Search("target")
 	if node != nil {
@@ -260,7 +260,7 @@ The linked list is not thread-safe. For concurrent access, use external synchron
 
 	list := linked_list.NewLinkedList[int]()
 	var mu sync.RWMutex
-	
+
 	// Safe concurrent reads
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
@@ -275,7 +275,7 @@ The linked list is not thread-safe. For concurrent access, use external synchron
 			}
 		}(i)
 	}
-	
+
 	// Safe concurrent writes
 	for i := 0; i < 10; i++ {
 		wg.Add(1)

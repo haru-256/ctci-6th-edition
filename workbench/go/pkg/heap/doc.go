@@ -87,20 +87,20 @@ All operations maintain the heap property efficiently through up-heap and down-h
 
 	// Start with an arbitrary collection
 	heap := heap.NewMaxHeap[int, string]()
-	
+
 	// Manually populate with unordered data
 	data := []struct{ key int; value string }{
 		{15, "fifteen"}, {10, "ten"}, {20, "twenty"}, {8, "eight"}, {25, "twenty-five"},
 	}
-	
+
 	// Add elements without maintaining heap property
 	for _, item := range data {
 		heap.Insert(item.key, item.value)
 	}
-	
+
 	// Convert to proper max heap in O(n) time
 	heap.BuildMaxHeap(heap)
-	
+
 	// Verify heap property
 	max, err := heap.Max()
 	if err == nil {
@@ -112,16 +112,16 @@ All operations maintain the heap property efficiently through up-heap and down-h
 	// Create and populate a heap
 	heap := heap.NewMaxHeap[int, string]()
 	values := []int{64, 34, 25, 12, 22, 11, 90}
-	
+
 	for _, v := range values {
 		heap.Insert(v, fmt.Sprintf("value_%d", v))
 	}
-	
+
 	fmt.Printf("Original heap size: %d\n", heap.Size())
-	
+
 	// Sort the heap in-place (ascending order)
 	heap.HeapSort(heap)
-	
+
 	// After sorting, elements are in ascending order in the underlying array
 	// Note: The heap structure is destroyed after sorting
 	fmt.Println("Heap sorted successfully")
@@ -132,9 +132,9 @@ The package provides utility functions for heap index calculations:
 
 	// For any element at index i:
 	parentIndex := heap.Parent(i)    // Parent at (i-1)/2
-	leftChild := heap.Left(i)        // Left child at 2*i+1  
+	leftChild := heap.Left(i)        // Left child at 2*i+1
 	rightChild := heap.Right(i)      // Right child at 2*(i+1)
-	
+
 	// Example: For element at index 2
 	fmt.Printf("Element at index 2:\n")
 	fmt.Printf("  Parent index: %d\n", heap.Parent(2))    // 0
@@ -166,7 +166,7 @@ The heap can be used as a priority queue:
 			break
 		}
 		task := taskNode.Value
-		fmt.Printf("Processing (Priority %d): %s\n", 
+		fmt.Printf("Processing (Priority %d): %s\n",
 			taskNode.Key, task.Description)
 	}
 
@@ -175,12 +175,12 @@ The heap can be used as a priority queue:
 The heap implementation is designed for efficient memory usage:
 
 	heap := heap.NewMaxHeap[int, string]()
-	
+
 	// Insert many elements
 	for i := 0; i < 1000; i++ {
 		heap.Insert(i, fmt.Sprintf("item_%d", i))
 	}
-	
+
 	// Extract all elements (heap will shrink automatically)
 	for heap.Size() > 0 {
 		_, err := heap.Pop()
@@ -188,7 +188,7 @@ The heap implementation is designed for efficient memory usage:
 			break
 		}
 	}
-	
+
 	// Heap is now empty and ready for reuse
 	fmt.Printf("Final heap size: %d\n", heap.Size()) // 0
 
@@ -203,19 +203,19 @@ Key memory features:
 The heap operations can return errors in specific conditions:
 
 	heap := heap.NewMaxHeap[int, string]()
-	
+
 	// Attempting to pop from empty heap
 	_, err := heap.Pop()
 	if errors.Is(err, heap.ErrorIsEmpty) {
 		fmt.Println("Cannot pop from empty heap")
 	}
-	
+
 	// Attempting to peek empty heap
 	_, err = heap.Max()
 	if errors.Is(err, heap.ErrorIsEmpty) {
 		fmt.Println("Cannot peek empty heap")
 	}
-	
+
 	// Always check errors for robustness
 	node, err := heap.Pop()
 	if err != nil {
@@ -230,7 +230,7 @@ The heap implementation is not thread-safe. For concurrent access, use external 
 
 	heap := heap.NewMaxHeap[int, string]()
 	var mu sync.Mutex
-	
+
 	// Safe concurrent insertions
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -243,7 +243,7 @@ The heap implementation is not thread-safe. For concurrent access, use external 
 		}(i)
 	}
 	wg.Wait()
-	
+
 	// Safe concurrent extractions
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -267,6 +267,7 @@ The max heap uses a complete binary tree stored in an array:
   - Parent is at index (i-1)/2
   - Left child is at index 2*i+1
   - Right child is at index 2*i+2
+
 - Up-heap operation maintains heap property after insertion
 - Down-heap operation maintains heap property after extraction
 - BuildMaxHeap uses bottom-up heapification for O(n) construction

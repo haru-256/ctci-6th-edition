@@ -17,7 +17,7 @@ for consistent key generation and supports any comparable value type.
 # Performance Characteristics
 
 - Insert: O(log n) average, O(n) worst case
-- Delete: O(log n) average, O(n) worst case  
+- Delete: O(log n) average, O(n) worst case
 - Search: O(log n) average, O(n) worst case
 - Space: O(n)
 
@@ -150,7 +150,7 @@ The binary search tree is thread-safe for all operations:
 The package defines specific errors for different failure conditions:
 
 - ErrorNodeIsNil: Returned when operating on nil nodes or empty trees
-- ErrorNodeNotFound: Returned when deletion target doesn't exist  
+- ErrorNodeNotFound: Returned when deletion target doesn't exist
 - ErrorUnsupportedValueType: Returned for unsupported hash types
 
 Always check for errors when performing tree operations:

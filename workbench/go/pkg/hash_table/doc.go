@@ -130,7 +130,7 @@ The hash table uses separate chaining with doubly linked lists:
 For optimal performance, monitor and manage load factor:
 
 	table := hashtable.NewHashChainTable[string](100)
-	
+
 	// Insert many elements
 	for i := 0; i < 1000; i++ {
 		value := fmt.Sprintf("item_%d", i)
@@ -191,7 +191,7 @@ The hash table uses FNV-1a hashing for key generation:
 
 	// Supported types
 	table.Insert(42)        // int
-	table.Insert(3.14)      // float64  
+	table.Insert(3.14)      // float64
 	table.Insert("hello")   // string
 
 	// Unsupported types will return ErrorUnsupportedValueType
@@ -239,20 +239,20 @@ The implementation efficiently manages memory:
 # Performance Tips
 
 1. Choose appropriate table size based on expected load:
-   - Table size should be roughly equal to expected number of elements
-   - Use prime numbers for table size to improve hash distribution
+  - Table size should be roughly equal to expected number of elements
+  - Use prime numbers for table size to improve hash distribution
 
 2. Monitor load factor and resize when necessary:
-   - Keep load factor below 0.75 for optimal performance
-   - Consider dynamic resizing for applications with varying load
+  - Keep load factor below 0.75 for optimal performance
+  - Consider dynamic resizing for applications with varying load
 
 3. Use appropriate types:
-   - Prefer int, float64, and string for best hash performance
-   - Ensure custom types implement proper equality comparison
+  - Prefer int, float64, and string for best hash performance
+  - Ensure custom types implement proper equality comparison
 
 4. Handle collisions gracefully:
-   - Expect some collisions with any hash function
-   - Performance degrades gracefully with separate chaining
-   - Consider alternative data structures for very high collision rates
+  - Expect some collisions with any hash function
+  - Performance degrades gracefully with separate chaining
+  - Consider alternative data structures for very high collision rates
 */
 package hashtable
