@@ -64,6 +64,8 @@ with separate data copies.
 # Examples
 
 	// Example: Sorting different types
+	// Example: Sorting different types
+	// (requires import "fmt")
 	func ExampleUsage() {
 		// Sort integers
 		ints := []int{5, 2, 8, 1, 9}
