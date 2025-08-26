@@ -1,26 +1,27 @@
 /*
-Package heap provides a generic max heap implementation with comprehensive heap operations.
+Package heap provides a generic heap implementation with flexible comparison functions.
 
-The max heap maintains the heap property where parent nodes are always greater than or equal
-to their children, ensuring the maximum element is always at the root. The implementation
-supports any ordered key type and allows associated values to be stored with each key.
+The heap maintains the heap property based on a user-provided comparison function, allowing
+for both max heap and min heap behavior. The implementation supports any type and provides
+efficient insertion, extraction, and heap operations.
 
 # Features
 
-- Generic implementation supporting any ordered key type (int, float64, string, etc.)
-- Max heap property with efficient insertion and extraction
-- Associated values can be stored with keys
+- Generic implementation supporting any type with custom comparison functions
+- Configurable as max heap or min heap through comparison functions
+- Efficient heap operations with logarithmic time complexity
 - Heap sort functionality for in-place sorting
-- BuildMaxHeap operation for converting arbitrary arrays
+- BuildMaxHeap and BuildMinHeap operations for converting arbitrary arrays
 - Helper functions for heap index calculations
 - Memory-efficient array-based storage
+- Convenience functions for common ordered types
 
 # Performance Characteristics
 
 - Insert: O(log n)
-- Pop (extract max): O(log n)
-- Peek (view max): O(1)
-- BuildMaxHeap: O(n)
+- Pop (extract top): O(log n)
+- Peek (view top): O(1)
+- BuildHeap: O(n)
 - HeapSort: O(n log n)
 - Space: O(n)
 
@@ -28,86 +29,117 @@ All operations maintain the heap property efficiently through up-heap and down-h
 
 # Basic Usage
 
-	// Create a new max heap for integers with string values
-	heap := heap.NewMaxHeap[int, string]()
+	// Create a new max heap for integers
+	maxHeap := heap.NewMaxHeap[int]()
 
-	// Insert key-value pairs
-	heap.Insert(10, "ten")
-	heap.Insert(30, "thirty")
-	heap.Insert(20, "twenty")
-	heap.Insert(40, "forty")
+	// Insert elements
+	maxHeap.Insert(10)
+	maxHeap.Insert(30)
+	maxHeap.Insert(20)
+	maxHeap.Insert(40)
 
 	// View the maximum element without removing it
-	maxNode, err := heap.Max()
+	max, err := maxHeap.Peek()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Maximum: %d -> %s\n", maxNode.Key, maxNode.Value)
+	fmt.Printf("Maximum: %d\n", *max)
 
-	// Extract elements in descending order
-	for heap.Size() > 0 {
-		node, err := heap.Pop()
+	// Extract elements in descending order (max heap)
+	for maxHeap.Size() > 0 {
+		item, err := maxHeap.Pop()
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("Popped: %d -> %s\n", node.Key, node.Value)
+		fmt.Printf("Popped: %d\n", *item)
 	}
 
-# Advanced Usage with Custom Types
+# Min Heap Usage
 
-	// Define a custom ordered type
-	type Priority int
+	// Create a new min heap for integers
+	minHeap := heap.NewMinHeap[int]()
 
-	const (
-		Low    Priority = 1
-		Medium Priority = 5
-		High   Priority = 10
-	)
+	// Insert elements
+	minHeap.Insert(30)
+	minHeap.Insert(10)
+	minHeap.Insert(20)
+	minHeap.Insert(5)
 
-	// Create heap for custom priority system
-	taskHeap := heap.NewMaxHeap[Priority, string]()
-
-	// Insert tasks with priorities
-	taskHeap.Insert(Medium, "Process emails")
-	taskHeap.Insert(High, "Critical bug fix")
-	taskHeap.Insert(Low, "Documentation update")
-	taskHeap.Insert(High, "Security patch")
-
-	// Process tasks in priority order (highest first)
-	fmt.Println("Processing tasks:")
-	for taskHeap.Size() > 0 {
-		task, err := taskHeap.Pop()
+	// Extract elements in ascending order (min heap)
+	for minHeap.Size() > 0 {
+		item, err := minHeap.Pop()
 		if err != nil {
-			break
+			log.Fatal(err)
 		}
-		fmt.Printf("Priority %d: %s\n", task.Key, task.Value)
+		fmt.Printf("Popped: %d\n", *item)
 	}
+	// Output: 5, 10, 20, 30
+	# Custom Comparison Functions
+
+	// Define a custom comparison function for max heap behavior
+	maxCmp := func(a, b *int) int {
+		if *a > *b {
+			return 1
+		} else if *a < *b {
+			return -1
+		}
+		return 0
+	}
+
+	// Create heap with custom comparison
+	customHeap := heap.NewHeap(maxCmp)
+	customHeap.Insert(15)
+	customHeap.Insert(25)
+	customHeap.Insert(5)
+
+	// Custom types with comparison
+	type Person struct {
+		Name string
+		Age  int
+	}
+
+	// Compare by age (older person has higher priority)
+	personCmp := func(a, b *Person) int {
+		if a.Age > b.Age {
+			return 1
+		} else if a.Age < b.Age {
+			return -1
+		}
+		return 0
+	}
+
+	personHeap := heap.NewHeap(personCmp)
+	personHeap.Insert(Person{Name: "Alice", Age: 30})
+	personHeap.Insert(Person{Name: "Bob", Age: 25})
+	personHeap.Insert(Person{Name: "Charlie", Age: 35})
+
+	// Charlie (age 35) will be at the top
 
 # Building Heap from Existing Data
 
-	// Start with an arbitrary collection
-	heap := heap.NewMaxHeap[int, string]()
-
-	// Manually populate with unordered data
-	data := []struct{ key int; value string }{
-		{15, "fifteen"}, {10, "ten"}, {20, "twenty"}, {8, "eight"}, {25, "twenty-five"},
+	// Create heap from existing array
+	values := []int{15, 10, 20, 8, 25}
+	valuePtrs := make([]*int, len(values))
+	for i, v := range values {
+		valuePtrs[i] = &v
 	}
 
-	// Add elements without maintaining heap property
-	for _, item := range data {
-		heap.Insert(item.key, item.value)
-	}
+	// Build max heap in O(n) time
+	maxHeap := heap.BuildMaxHeap(valuePtrs)
 
-	// Convert to proper max heap in O(n) time
-	heap.BuildMaxHeap(heap)
+	// Build min heap in O(n) time
+	minHeap := heap.BuildMinHeap(valuePtrs)
 
 	// Verify heap property
-	max, err := heap.Max()
+	max, err := maxHeap.Peek()
 	if err == nil {
-		fmt.Printf("Maximum after BuildMaxHeap: %d\n", max.Key) // Should be 25
+		fmt.Printf("Maximum after BuildMaxHeap: %d\n", *max) // Should be 25
 	}
 
-# Heap Sort
+	min, err := minHeap.Peek()
+	if err == nil {
+		fmt.Printf("Minimum after BuildMinHeap: %d\n", *min) // Should be 8
+	}# Heap Sort
 
 	// Create and populate a heap
 	heap := heap.NewMaxHeap[int, string]()

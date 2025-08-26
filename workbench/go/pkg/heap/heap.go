@@ -174,10 +174,22 @@ func Parent(i int) int {
 // on all non-leaf nodes, starting from the last parent node and working upwards.
 // The heap property (max or min) is determined by the comparison function.
 // Time complexity: O(n) where n is the number of elements in the heap.
-func BuildHeap[T any](heap *Heap[T]) {
-	for i := heap.Size()/2 - 1; i >= 0; i-- {
-		heap.downHeapWithSize(i, heap.Size())
+func BuildHeap[T cmp.Ordered](arr []*T, cmpFn func(a, b *T) int) *Heap[T] {
+	heap := NewHeap(cmpFn)
+	heap.items = arr
+	size := heap.Size()
+	for i := size/2 - 1; i >= 0; i-- {
+		heap.downHeapWithSize(i, size)
 	}
+	return heap
+}
+
+func BuildMaxHeap[T cmp.Ordered](arr []*T) *Heap[T] {
+	return BuildHeap(arr, maxCmp[T])
+}
+
+func BuildMinHeap[T cmp.Ordered](arr []*T) *Heap[T] {
+	return BuildHeap(arr, minCmp[T])
 }
 
 // HeapSort sorts the elements in the heap using the heap sort algorithm.
@@ -189,14 +201,25 @@ func BuildHeap[T any](heap *Heap[T]) {
 // determined by the comparison function (ascending for max heap, descending for min heap).
 // Time complexity: O(n log n) where n is the number of elements.
 // Space complexity: O(1) as it sorts in-place.
-func HeapSort[T any](heap *Heap[T]) {
-	BuildHeap(heap)
+//
+//	func HeapSort[T any](heap *Heap[T]) {
+//		BuildHeap(heap)
+//		heapSize := heap.Size()
+//		for i := heapSize - 1; i > 0; i-- {
+//			heap.swap(0, i)
+//			heapSize--
+//			heap.downHeapWithSize(0, heapSize)
+//		}
+//	}
+func HeapSort[T cmp.Ordered](arr []*T) []*T {
+	heap := BuildMaxHeap(arr)
 	heapSize := heap.Size()
 	for i := heapSize - 1; i > 0; i-- {
 		heap.swap(0, i)
 		heapSize--
 		heap.downHeapWithSize(0, heapSize)
 	}
+	return heap.items
 }
 
 // Node represents a key-value pair stored in the heap.
@@ -210,25 +233,29 @@ type Node[K cmp.Ordered, V any] struct {
 // NewMaxHeap creates a new max heap for ordered types.
 // This is a convenience function for creating max heaps with ordered types.
 func NewMaxHeap[T cmp.Ordered]() *Heap[T] {
-	return NewHeap(func(a, b *T) int {
-		if *a > *b {
-			return 1
-		} else if *a < *b {
-			return -1
-		}
-		return 0
-	})
+	return NewHeap(maxCmp[T])
 }
 
 // NewMinHeap creates a new min heap for ordered types.
 // This is a convenience function for creating min heaps with ordered types.
 func NewMinHeap[T cmp.Ordered]() *Heap[T] {
-	return NewHeap(func(a, b *T) int {
-		if *a < *b {
-			return 1
-		} else if *a > *b {
-			return -1
-		}
-		return 0
-	})
+	return NewHeap(minCmp[T])
+}
+
+func maxCmp[T cmp.Ordered](a, b *T) int {
+	if *a > *b {
+		return 1
+	} else if *a < *b {
+		return -1
+	}
+	return 0
+}
+
+func minCmp[T cmp.Ordered](a, b *T) int {
+	if *a < *b {
+		return 1
+	} else if *a > *b {
+		return -1
+	}
+	return 0
 }
