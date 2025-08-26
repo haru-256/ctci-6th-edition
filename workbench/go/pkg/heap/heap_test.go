@@ -3,6 +3,7 @@ package heap
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,40 +40,47 @@ func float64Cmp(a, b *float64) int {
 func TestNewHeap(t *testing.T) {
 	heap := NewHeap[int](intCmp)
 
-	if heap == nil {
-		t.Fatal("NewHeap returned nil")
-	}
+	require.NotNil(t, heap, "NewHeap should not return nil")
+	assert.Equal(t, 0, heap.Size(), "Expected size 0")
 
-	if heap.Size() != 0 {
-		t.Errorf("Expected size 0, got %d", heap.Size())
-	}
-
-	if len(heap.items) != 0 {
-		t.Errorf("Expected empty items slice, got length %d", len(heap.items))
-	}
+	items := heap.GetItems()
+	assert.Empty(t, items, "Expected empty items slice")
 }
 
 func TestNewMaxHeap_Convenience(t *testing.T) {
 	heap := NewMaxHeap[int]()
 
-	if heap == nil {
-		t.Fatal("NewMaxHeap returned nil")
-	}
-
-	if heap.Size() != 0 {
-		t.Errorf("Expected size 0, got %d", heap.Size())
-	}
+	require.NotNil(t, heap, "NewMaxHeap should not return nil")
+	assert.Equal(t, 0, heap.Size(), "Expected size 0")
 }
 
 func TestNewMinHeap_Convenience(t *testing.T) {
 	heap := NewMinHeap[int]()
 
-	if heap == nil {
-		t.Fatal("NewMinHeap returned nil")
-	}
+	require.NotNil(t, heap, "NewMinHeap should not return nil")
+	assert.Equal(t, 0, heap.Size(), "Expected size 0")
+}
 
-	if heap.Size() != 0 {
-		t.Errorf("Expected size 0, got %d", heap.Size())
+func TestMinHeap_Operations(t *testing.T) {
+	heap := NewMinHeap[int]()
+
+	// Insert elements
+	heap.Insert(30)
+	heap.Insert(10)
+	heap.Insert(20)
+	heap.Insert(5)
+
+	// Root should be minimum (5)
+	min, err := heap.Peek()
+	require.NoError(t, err, "Peek should not return error")
+	assert.Equal(t, 5, *min, "Expected min 5")
+
+	// Pop should return elements in ascending order
+	expectedValues := []int{5, 10, 20, 30}
+	for i, expectedValue := range expectedValues {
+		item, err := heap.Pop()
+		require.NoError(t, err, "Pop %d should not return error", i)
+		assert.Equal(t, expectedValue, *item, "Pop %d: expected %d", i, expectedValue)
 	}
 }
 
@@ -81,35 +89,23 @@ func TestHeap_Insert(t *testing.T) {
 
 	// Test inserting single element
 	heap.Insert(10)
-	if heap.Size() != 1 {
-		t.Errorf("Expected size 1, got %d", heap.Size())
-	}
+	assert.Equal(t, 1, heap.Size(), "Expected size 1")
 
 	top, err := heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *top != 10 {
-		t.Errorf("Expected 10, got %d", *top)
-	}
+	require.NoError(t, err, "Peek should not return error")
+	assert.Equal(t, 10, *top, "Expected 10")
 
 	// Test inserting multiple elements
 	heap.Insert(20)
 	heap.Insert(5)
 	heap.Insert(15)
 
-	if heap.Size() != 4 {
-		t.Errorf("Expected size 4, got %d", heap.Size())
-	}
+	assert.Equal(t, 4, heap.Size(), "Expected size 4")
 
 	// The root should be the maximum element for max heap
 	top, err = heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *top != 20 {
-		t.Errorf("Expected top 20, got %d", *top)
-	}
+	require.NoError(t, err, "Peek should not return error")
+	assert.Equal(t, 20, *top, "Expected top 20")
 }
 
 func TestMaxHeap_HeapProperty(t *testing.T) {
@@ -122,19 +118,24 @@ func TestMaxHeap_HeapProperty(t *testing.T) {
 		heap.Insert(v)
 	}
 
+	// Get items using GetItems() to verify heap property
+	items := heap.GetItems()
+
 	// Verify max heap property: parent >= children
 	for i := 0; i < heap.Size()/2; i++ {
 		left := Left(i)
 		right := Right(i)
 
-		if left < heap.Size() && *heap.items[i] < *heap.items[left] {
-			t.Errorf("Max heap property violated: parent[%d]=%d < left[%d]=%d",
-				i, *heap.items[i], left, *heap.items[left])
+		if left < heap.Size() {
+			assert.GreaterOrEqual(t, *items[i], *items[left],
+				"Max heap property violated: parent[%d]=%d < left[%d]=%d",
+				i, *items[i], left, *items[left])
 		}
 
-		if right < heap.Size() && *heap.items[i] < *heap.items[right] {
-			t.Errorf("Max heap property violated: parent[%d]=%d < right[%d]=%d",
-				i, *heap.items[i], right, *heap.items[right])
+		if right < heap.Size() {
+			assert.GreaterOrEqual(t, *items[i], *items[right],
+				"Max heap property violated: parent[%d]=%d < right[%d]=%d",
+				i, *items[i], right, *items[right])
 		}
 	}
 }
@@ -144,9 +145,7 @@ func TestMaxHeap_Pop(t *testing.T) {
 
 	// Test pop from empty heap
 	_, err := heap.Pop()
-	if err != ErrorIsEmpty {
-		t.Errorf("Expected ErrorIsEmpty, got %v", err)
-	}
+	assert.Equal(t, ErrorIsEmpty, err, "Expected ErrorIsEmpty")
 
 	// Insert elements and test pop
 	heap.Insert(10)
@@ -157,26 +156,17 @@ func TestMaxHeap_Pop(t *testing.T) {
 	// Pop should return elements in descending order
 	expectedValues := []int{20, 15, 10, 5}
 	for i, expectedValue := range expectedValues {
-		var item *int
-		item, err = heap.Pop()
-		if err != nil {
-			t.Fatalf("Unexpected error at pop %d: %v", i, err)
-		}
-		if *item != expectedValue {
-			t.Errorf("Pop %d: expected %d, got %d", i, expectedValue, *item)
-		}
+		item, err := heap.Pop()
+		require.NoError(t, err, "Unexpected error at pop %d", i)
+		assert.Equal(t, expectedValue, *item, "Pop %d: expected %d", i, expectedValue)
 	}
 
 	// Heap should be empty now
-	if heap.Size() != 0 {
-		t.Errorf("Expected size 0 after all pops, got %d", heap.Size())
-	}
+	assert.Equal(t, 0, heap.Size(), "Expected size 0 after all pops")
 
 	// Another pop should return error
 	_, err = heap.Pop()
-	if err != ErrorIsEmpty {
-		t.Errorf("Expected ErrorIsEmpty after popping empty heap, got %v", err)
-	}
+	assert.Equal(t, ErrorIsEmpty, err, "Expected ErrorIsEmpty after popping empty heap")
 }
 
 func TestMaxHeap_Max(t *testing.T) {
@@ -184,33 +174,21 @@ func TestMaxHeap_Max(t *testing.T) {
 
 	// Test max on empty heap
 	_, err := heap.Peek()
-	if err != ErrorIsEmpty {
-		t.Errorf("Expected ErrorIsEmpty, got %v", err)
-	}
+	assert.Equal(t, ErrorIsEmpty, err, "Expected ErrorIsEmpty")
 
 	// Insert elements and test max
 	heap.Insert(10)
 	max, err := heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *max != 10 {
-		t.Errorf("Expected max 10, got %d", *max)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 10, *max, "Expected max 10")
 
 	heap.Insert(20)
 	max, err = heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *max != 20 {
-		t.Errorf("Expected max 20, got %d", *max)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 20, *max, "Expected max 20")
 
 	// Size should remain the same after Peek()
-	if heap.Size() != 2 {
-		t.Errorf("Expected size 2 after Peek(), got %d", heap.Size())
-	}
+	assert.Equal(t, 2, heap.Size(), "Expected size 2 after Peek()")
 }
 
 func TestLeft(t *testing.T) {
@@ -225,10 +203,7 @@ func TestLeft(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := Left(test.input)
-		if result != test.expected {
-			t.Errorf("Left(%d) = %d; expected %d", test.input, result, test.expected)
-		}
+		assert.Equal(t, test.expected, Left(test.input), "Left(%d) should be %d", test.input, test.expected)
 	}
 }
 
@@ -244,10 +219,7 @@ func TestRight(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := Right(test.input)
-		if result != test.expected {
-			t.Errorf("Right(%d) = %d; expected %d", test.input, result, test.expected)
-		}
+		assert.Equal(t, test.expected, Right(test.input), "Right(%d) should be %d", test.input, test.expected)
 	}
 }
 
@@ -265,120 +237,139 @@ func TestParent(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := Parent(test.input)
-		if result != test.expected {
-			t.Errorf("Parent(%d) = %d; expected %d", test.input, result, test.expected)
-		}
+		assert.Equal(t, test.expected, Parent(test.input), "Parent(%d) should be %d", test.input, test.expected)
 	}
 }
 
 func TestBuildMaxHeap(t *testing.T) {
-	heap := NewMaxHeap[int]()
-
-	// Manually add elements without maintaining heap property
+	// Create array with unordered elements
 	items := []int{10, 30, 20, 40, 50}
-	for _, item := range items {
-		heap.items = append(heap.items, &item)
+	itemPtrs := make([]*int, len(items))
+	for i, item := range items {
+		itemPtrs[i] = &item
 	}
 
-	// Build max heap
-	BuildHeap(heap)
+	// Build max heap from array
+	heap := BuildMaxHeap(itemPtrs)
 
 	// Verify max heap property
 	for i := 0; i < heap.Size()/2; i++ {
 		left := Left(i)
 		right := Right(i)
 
-		if left < heap.Size() && *heap.items[i] < *heap.items[left] {
-			t.Errorf("Max heap property violated after BuildHeap: parent[%d]=%d < left[%d]=%d",
-				i, *heap.items[i], left, *heap.items[left])
+		heapItems := heap.GetItems()
+		if left < heap.Size() {
+			assert.GreaterOrEqual(t, *heapItems[i], *heapItems[left],
+				"Max heap property violated after BuildMaxHeap: parent[%d]=%d < left[%d]=%d",
+				i, *heapItems[i], left, *heapItems[left])
 		}
 
-		if right < heap.Size() && *heap.items[i] < *heap.items[right] {
-			t.Errorf("Max heap property violated after BuildHeap: parent[%d]=%d < right[%d]=%d",
-				i, *heap.items[i], right, *heap.items[right])
+		if right < heap.Size() {
+			assert.GreaterOrEqual(t, *heapItems[i], *heapItems[right],
+				"Max heap property violated after BuildMaxHeap: parent[%d]=%d < right[%d]=%d",
+				i, *heapItems[i], right, *heapItems[right])
 		}
 	}
 
 	// Root should be maximum
-	if *heap.items[0] != 50 {
-		t.Errorf("Expected root 50 after BuildHeap, got %d", *heap.items[0])
+	max, err := heap.Peek()
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 50, *max, "Expected root 50 after BuildMaxHeap")
+}
+
+func TestBuildMinHeap(t *testing.T) {
+	// Create array with unordered elements
+	items := []int{50, 20, 40, 10, 30}
+	itemPtrs := make([]*int, len(items))
+	for i, item := range items {
+		itemPtrs[i] = &item
 	}
+
+	// Build min heap from array
+	heap := BuildMinHeap(itemPtrs)
+
+	// Verify min heap property
+	for i := 0; i < heap.Size()/2; i++ {
+		left := Left(i)
+		right := Right(i)
+
+		heapItems := heap.GetItems()
+		if left < heap.Size() {
+			assert.LessOrEqual(t, *heapItems[i], *heapItems[left],
+				"Min heap property violated after BuildMinHeap: parent[%d]=%d > left[%d]=%d",
+				i, *heapItems[i], left, *heapItems[left])
+		}
+
+		if right < heap.Size() {
+			assert.LessOrEqual(t, *heapItems[i], *heapItems[right],
+				"Min heap property violated after BuildMinHeap: parent[%d]=%d > right[%d]=%d",
+				i, *heapItems[i], right, *heapItems[right])
+		}
+	}
+
+	// Root should be minimum
+	min, err := heap.Peek()
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 10, *min, "Expected root 10 after BuildMinHeap")
 }
 
 func TestHeapSort(t *testing.T) {
-	heap := NewMaxHeap[int]()
-
-	// Insert elements in random order
+	// Create array with elements in random order
 	values := []int{30, 10, 50, 20, 40}
-	for _, v := range values {
-		heap.Insert(v)
+	itemPtrs := make([]*int, len(values))
+	for i, v := range values {
+		itemPtrs[i] = &v
 	}
 
 	// Perform heap sort
-	HeapSort(heap)
+	sorted := HeapSort(itemPtrs)
 
 	// After heap sort, the array should be sorted in ascending order
 	expected := []int{10, 20, 30, 40, 50}
 	for i := 0; i < len(expected); i++ {
-		if *heap.items[i] != expected[i] {
-			t.Errorf("After HeapSort, items[%d] = %d; expected %d",
-				i, *heap.items[i], expected[i])
-		}
+		assert.Equal(t, expected[i], *sorted[i], "After HeapSort, items[%d] should be %d", i, expected[i])
 	}
 
 	// Verify size remains the same
-	if heap.Size() != len(values) {
-		t.Errorf("Expected size %d after HeapSort, got %d", len(values), heap.Size())
-	}
+	assert.Equal(t, len(values), len(sorted), "Expected size %d after HeapSort", len(values))
 }
 
 func TestHeapSort_LargerDataset(t *testing.T) {
-	heap := NewMaxHeap[int]()
-
-	// Insert elements in random order (larger dataset)
+	// Create array with elements in random order (larger dataset)
 	values := []int{64, 34, 25, 12, 22, 11, 90, 5, 77, 30, 55, 45, 60, 78, 1}
-	for _, v := range values {
-		heap.Insert(v)
+	itemPtrs := make([]*int, len(values))
+	for i, v := range values {
+		itemPtrs[i] = &v
 	}
 
 	// Perform heap sort
-	HeapSort(heap)
+	sorted := HeapSort(itemPtrs)
 
 	// After heap sort, the array should be sorted in ascending order
 	expected := []int{1, 5, 11, 12, 22, 25, 30, 34, 45, 55, 60, 64, 77, 78, 90}
 	for i := 0; i < len(expected); i++ {
-		if *heap.items[i] != expected[i] {
-			t.Errorf("After HeapSort, items[%d] = %d; expected %d",
-				i, *heap.items[i], expected[i])
-		}
+		assert.Equal(t, expected[i], *sorted[i], "After HeapSort, items[%d] should be %d", i, expected[i])
 	}
 }
 
 func TestHeapSort_EmptyHeap(t *testing.T) {
-	heap := NewMaxHeap[int]()
+	// Test heap sort on empty array
+	var itemPtrs []*int
 
-	// Test heap sort on empty heap
-	HeapSort(heap)
+	sorted := HeapSort(itemPtrs)
 
-	if heap.Size() != 0 {
-		t.Errorf("Expected size 0 for empty heap after HeapSort, got %d", heap.Size())
-	}
+	assert.Empty(t, sorted, "Expected empty array after HeapSort")
 }
 
 func TestHeapSort_SingleElement(t *testing.T) {
-	heap := NewMaxHeap[int]()
-	heap.Insert(42)
+	// Test heap sort on single element array
+	value := 42
+	itemPtrs := []*int{&value}
 
-	HeapSort(heap)
+	sorted := HeapSort(itemPtrs)
 
-	if heap.Size() != 1 {
-		t.Errorf("Expected size 1 for single element heap after HeapSort, got %d", heap.Size())
-	}
-
-	if *heap.items[0] != 42 {
-		t.Errorf("Expected 42, got %d", *heap.items[0])
-	}
+	assert.Len(t, sorted, 1, "Expected size 1 for single element array after HeapSort")
+	assert.Equal(t, 42, *sorted[0], "Expected 42")
 }
 
 func TestMaxHeap_WithDifferentTypes(t *testing.T) {
@@ -390,12 +381,8 @@ func TestMaxHeap_WithDifferentTypes(t *testing.T) {
 
 	// Root should be "zebra" (lexicographically largest)
 	max, err := stringHeap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *max != "zebra" {
-		t.Errorf("Expected max 'zebra', got %s", *max)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, "zebra", *max, "Expected max string 'zebra'")
 
 	// Test with float64 values
 	floatHeap := NewHeap[float64](float64Cmp)
@@ -405,12 +392,8 @@ func TestMaxHeap_WithDifferentTypes(t *testing.T) {
 
 	// Root should be 3.14 (largest)
 	max2, err := floatHeap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if *max2 != 3.14 {
-		t.Errorf("Expected max 3.14, got %f", *max2)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 3.14, *max2, "Expected max 3.14")
 }
 
 func TestMaxHeap_IntegrationTest(t *testing.T) {
@@ -424,26 +407,20 @@ func TestMaxHeap_IntegrationTest(t *testing.T) {
 	}
 
 	// Verify size
-	if heap.Size() != len(elements) {
-		t.Errorf("Expected size %d, got %d", len(elements), heap.Size())
-	}
+	assert.Equal(t, len(elements), heap.Size(), "Expected size %d", len(elements))
 
 	// Pop all elements and verify they come out in descending order
 	var poppedValues []int
 	for heap.Size() > 0 {
 		item, err := heap.Pop()
-		if err != nil {
-			t.Fatalf("Unexpected error during pop: %v", err)
-		}
+		require.NoError(t, err, "Unexpected error during pop")
 		poppedValues = append(poppedValues, *item)
 	}
 
 	// Verify order is descending
 	for i := 1; i < len(poppedValues); i++ {
-		if poppedValues[i-1] < poppedValues[i] {
-			t.Errorf("Elements not popped in descending order: %v", poppedValues)
-			break
-		}
+		assert.GreaterOrEqual(t, poppedValues[i-1], poppedValues[i],
+			"Elements not popped in descending order: %v", poppedValues)
 	}
 }
 
@@ -472,24 +449,16 @@ func TestMaxHeap_CustomType(t *testing.T) {
 
 	// Max should be Charlie (oldest)
 	max, err := heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if max.Name != "Charlie" || max.Age != 35 {
-		t.Errorf("Expected Charlie(35), got %s(%d)", max.Name, max.Age)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, "Charlie", max.Name, "Expected Charlie")
+	assert.Equal(t, 35, max.Age, "Expected age 35")
 
 	// Pop all and verify order
 	expectedNames := []string{"Charlie", "Alice", "Bob"}
 	for i, expectedName := range expectedNames {
-		var person *Person
-		person, err = heap.Pop()
-		if err != nil {
-			t.Fatalf("Unexpected error at pop %d: %v", i, err)
-		}
-		if person.Name != expectedName {
-			t.Errorf("Pop %d: expected %s, got %s", i, expectedName, person.Name)
-		}
+		person, err := heap.Pop()
+		require.NoError(t, err, "Unexpected error at pop %d", i)
+		assert.Equal(t, expectedName, person.Name, "Pop %d: expected %s", i, expectedName)
 	}
 }
 
@@ -514,12 +483,9 @@ func TestMaxHeap_WithNodeType(t *testing.T) {
 
 	// Max should be node with key 20
 	max, err := heap.Peek()
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if max.Key != 20 || max.Value != "twenty" {
-		t.Errorf("Expected {20, twenty}, got {%d, %s}", max.Key, max.Value)
-	}
+	require.NoError(t, err, "Unexpected error")
+	assert.Equal(t, 20, max.Key, "Expected key 20")
+	assert.Equal(t, "twenty", max.Value, "Expected value 'twenty'")
 }
 
 // Benchmark tests
@@ -549,14 +515,14 @@ func BenchmarkMaxHeap_Pop(b *testing.B) {
 func BenchmarkHeapSort(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		heap := NewMaxHeap[int]()
-
-		// Insert 1000 elements
+		// Create array with 1000 elements
+		itemPtrs := make([]*int, 1000)
 		for j := 1000; j > 0; j-- {
-			heap.Insert(j)
+			value := j
+			itemPtrs[1000-j] = &value
 		}
 
 		b.StartTimer()
-		HeapSort(heap)
+		HeapSort(itemPtrs)
 	}
 }
