@@ -78,7 +78,8 @@ func TestMinHeap_Operations(t *testing.T) {
 	// Pop should return elements in ascending order
 	expectedValues := []int{5, 10, 20, 30}
 	for i, expectedValue := range expectedValues {
-		item, err := heap.Pop()
+		var item *int
+		item, err = heap.Pop()
 		require.NoError(t, err, "Pop %d should not return error", i)
 		assert.Equal(t, expectedValue, *item, "Pop %d: expected %d", i, expectedValue)
 	}
@@ -156,7 +157,8 @@ func TestMaxHeap_Pop(t *testing.T) {
 	// Pop should return elements in descending order
 	expectedValues := []int{20, 15, 10, 5}
 	for i, expectedValue := range expectedValues {
-		item, err := heap.Pop()
+		var item *int
+		item, err = heap.Pop()
 		require.NoError(t, err, "Unexpected error at pop %d", i)
 		assert.Equal(t, expectedValue, *item, "Pop %d: expected %d", i, expectedValue)
 	}
@@ -455,8 +457,9 @@ func TestMaxHeap_CustomType(t *testing.T) {
 
 	// Pop all and verify order
 	expectedNames := []string{"Charlie", "Alice", "Bob"}
+	var person *Person
 	for i, expectedName := range expectedNames {
-		person, err := heap.Pop()
+		person, err = heap.Pop()
 		require.NoError(t, err, "Unexpected error at pop %d", i)
 		assert.Equal(t, expectedName, person.Name, "Pop %d: expected %s", i, expectedName)
 	}
