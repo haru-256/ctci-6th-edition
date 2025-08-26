@@ -39,7 +39,7 @@ func fromPointerSlice[T any](ptrs []*T) []T {
 // 3. Rebuilding the heap property for the remaining elements
 //
 // Time Complexity: O(n log n) - guaranteed for all cases
-// Space Complexity: O(1) - sorts in place with minimal extra space
+// Space Complexity: O(n) - creates a new sorted slice, not in-place
 // Stability: Not stable
 //
 // Parameters:
