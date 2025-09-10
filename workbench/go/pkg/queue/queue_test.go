@@ -8,721 +8,290 @@ import (
 )
 
 func TestNewQueue(t *testing.T) {
-	tests := []struct {
-		name string
-		size int
-		test func(t *testing.T, q *Queue)
-	}{
-		{
-			name: "creates empty queue with specified size",
-			size: 5,
-			test: func(t *testing.T, q *Queue) {
-				require.NotNil(t, q)
-				assert.True(t, q.IsEmpty())
-				assert.False(t, q.IsFull())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 0, q.tail)
-				assert.Equal(t, 5, q.size)
-				assert.Equal(t, 5, len(q.items))
-			},
-		},
-		{
-			name: "creates queue with size 1",
-			size: 1,
-			test: func(t *testing.T, q *Queue) {
-				require.NotNil(t, q)
-				assert.True(t, q.IsEmpty())
-				assert.True(t, q.IsFull()) // Size 1 queue is immediately full due to circular buffer
-				assert.Equal(t, 1, q.size)
-			},
-		},
-		{
-			name: "creates large queue",
-			size: 100,
-			test: func(t *testing.T, q *Queue) {
-				require.NotNil(t, q)
-				assert.True(t, q.IsEmpty())
-				assert.False(t, q.IsFull())
-				assert.Equal(t, 100, q.size)
-			},
-		},
-	}
+	t.Run("valid size", func(t *testing.T) {
+		q := NewQueue[int](5)
+		assert.NotNil(t, q)
+		assert.True(t, q.IsEmpty())
+		assert.False(t, q.IsFull())
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(tt.size)
-			tt.test(t, queue)
+	t.Run("panic on invalid size", func(t *testing.T) {
+		assert.Panics(t, func() {
+			NewQueue[int](0)
 		})
-	}
+		assert.Panics(t, func() {
+			NewQueue[int](-1)
+		})
+	})
 }
 
-func TestQueue_IsEmpty(t *testing.T) {
-	tests := []struct {
-		name     string
-		setup    func() *Queue
-		expected bool
-	}{
-		{
-			name: "empty queue returns true",
-			setup: func() *Queue {
-				return NewQueue(5)
-			},
-			expected: true,
-		},
-		{
-			name: "non-empty queue returns false",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("item")
-				return q
-			},
-			expected: false,
-		},
-		{
-			name: "queue after enqueue and dequeue returns true",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("item")
-				_, _ = q.Dequeue()
-				return q
-			},
-			expected: true,
-		},
-	}
+func TestIsEmpty(t *testing.T) {
+	q := NewQueue[int](3)
+	assert.True(t, q.IsEmpty())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := tt.setup()
-			result := queue.IsEmpty()
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	item := 1
+	require.NoError(t, q.Enqueue(&item))
+	assert.False(t, q.IsEmpty())
+
+	_, err := q.Dequeue()
+	require.NoError(t, err)
+	assert.True(t, q.IsEmpty())
 }
 
-func TestQueue_IsFull(t *testing.T) {
-	tests := []struct {
-		name     string
-		setup    func() *Queue
-		expected bool
-	}{
-		{
-			name: "empty queue returns false",
-			setup: func() *Queue {
-				return NewQueue(3)
-			},
-			expected: false,
-		},
-		{
-			name: "partially filled queue returns false",
-			setup: func() *Queue {
-				q := NewQueue(3)
-				_ = q.Enqueue("item1")
-				return q
-			},
-			expected: false,
-		},
-		{
-			name: "full queue returns true",
-			setup: func() *Queue {
-				q := NewQueue(3)
-				_ = q.Enqueue("item1")
-				_ = q.Enqueue("item2")
-				return q
-			},
-			expected: true,
-		},
-		{
-			name: "size 2 queue with one item is full",
-			setup: func() *Queue {
-				q := NewQueue(2)
-				_ = q.Enqueue("item")
-				return q
-			},
-			expected: true,
-		},
-	}
+func TestIsFull(t *testing.T) {
+	q := NewQueue[int](3)
+	assert.False(t, q.IsFull())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := tt.setup()
-			result := queue.IsFull()
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	item1 := 1
+	require.NoError(t, q.Enqueue(&item1))
+	assert.False(t, q.IsFull())
+
+	item2 := 2
+	require.NoError(t, q.Enqueue(&item2))
+	assert.False(t, q.IsFull())
+
+	item3 := 3
+	require.NoError(t, q.Enqueue(&item3))
+	assert.True(t, q.IsFull())
 }
 
-func TestQueue_Enqueue(t *testing.T) {
-	tests := []struct {
-		name      string
-		queueSize int
-		items     []any
-		checkFunc func(t *testing.T, q *Queue)
-	}{
-		{
-			name:      "enqueue single item",
-			queueSize: 5,
-			items:     []any{"hello"},
-			checkFunc: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.False(t, q.IsFull())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 1, q.tail)
-				assert.Equal(t, "hello", q.items[0])
-			},
-		},
-		{
-			name:      "enqueue multiple items",
-			queueSize: 5,
-			items:     []any{"first", "second", "third"},
-			checkFunc: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.False(t, q.IsFull())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 3, q.tail)
-				assert.Equal(t, "first", q.items[0])
-				assert.Equal(t, "second", q.items[1])
-				assert.Equal(t, "third", q.items[2])
-			},
-		},
-		{
-			name:      "enqueue different types",
-			queueSize: 5,
-			items:     []any{42, "string", 3.14, true},
-			checkFunc: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.True(t, q.IsFull()) // 4 items in size 5 queue = full (circular buffer)
-				assert.Equal(t, 4, q.tail)
-				assert.Equal(t, 42, q.items[0])
-				assert.Equal(t, "string", q.items[1])
-				assert.Equal(t, 3.14, q.items[2])
-				assert.Equal(t, true, q.items[3])
-			},
-		},
-		{
-			name:      "enqueue nil item",
-			queueSize: 5,
-			items:     []any{nil},
-			checkFunc: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.Equal(t, 1, q.tail)
-				assert.Nil(t, q.items[0])
-			},
-		},
-	}
+func TestEnqueue(t *testing.T) {
+	t.Run("successful enqueue", func(t *testing.T) {
+		q := NewQueue[int](3)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(tt.queueSize)
+		item1 := 10
+		err := q.Enqueue(&item1)
+		assert.NoError(t, err)
+		assert.False(t, q.IsEmpty())
 
-			for _, item := range tt.items {
-				err := queue.Enqueue(item)
-				require.NoError(t, err)
-			}
+		item2 := 20
+		err = q.Enqueue(&item2)
+		assert.NoError(t, err)
 
-			tt.checkFunc(t, queue)
-		})
-	}
+		item3 := 30
+		err = q.Enqueue(&item3)
+		assert.NoError(t, err)
+		assert.True(t, q.IsFull())
+	})
+
+	t.Run("enqueue to full queue", func(t *testing.T) {
+		q := NewQueue[int](2)
+
+		item1 := 1
+		require.NoError(t, q.Enqueue(&item1))
+		item2 := 2
+		require.NoError(t, q.Enqueue(&item2))
+		assert.True(t, q.IsFull())
+
+		item3 := 3
+		err := q.Enqueue(&item3)
+		assert.Equal(t, ErrorQueueOverflow, err)
+	})
 }
 
-func TestQueue_EnqueueOverflow(t *testing.T) {
-	tests := []struct {
-		name         string
-		queueSize    int
-		enqueueCount int
-	}{
-		{
-			name:         "enqueue to exactly full queue",
-			queueSize:    3,
-			enqueueCount: 3,
-		},
-		{
-			name:         "enqueue beyond queue capacity",
-			queueSize:    2,
-			enqueueCount: 5,
-		},
-		{
-			name:         "enqueue to size 2 queue",
-			queueSize:    2,
-			enqueueCount: 3,
-		},
-	}
+func TestDequeue(t *testing.T) {
+	t.Run("successful dequeue", func(t *testing.T) {
+		q := NewQueue[int](3)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(tt.queueSize)
+		item1 := 10
+		item2 := 20
+		item3 := 30
 
-			var err error
-			for i := 0; i < tt.enqueueCount; i++ {
-				err = queue.Enqueue(i)
-				if i < tt.queueSize-1 { // -1 because circular queue leaves one spot empty
-					require.NoError(t, err, "Enqueue %d should succeed", i)
-				} else {
-					require.Error(t, err, "Enqueue %d should fail due to overflow", i)
-					assert.ErrorIs(t, err, ErrorQueueOverflow)
-					assert.True(t, queue.IsFull(), "Queue should be full")
-				}
-			}
-		})
-	}
+		require.NoError(t, q.Enqueue(&item1))
+		require.NoError(t, q.Enqueue(&item2))
+		require.NoError(t, q.Enqueue(&item3))
+
+		// Dequeue in FIFO order
+		dequeued, err := q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, *dequeued)
+
+		dequeued, err = q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, 20, *dequeued)
+
+		dequeued, err = q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, 30, *dequeued)
+
+		assert.True(t, q.IsEmpty())
+	})
+
+	t.Run("dequeue from empty queue", func(t *testing.T) {
+		q := NewQueue[int](3)
+
+		_, err := q.Dequeue()
+		assert.Equal(t, ErrorQueueUnderflow, err)
+	})
 }
 
-func TestQueue_Dequeue(t *testing.T) {
-	tests := []struct {
-		name          string
-		setup         func() *Queue
-		expectedItem  any
-		expectedError error
-		checkQueue    func(t *testing.T, q *Queue)
-	}{
-		{
-			name: "dequeue from empty queue returns error",
-			setup: func() *Queue {
-				return NewQueue(5)
-			},
-			expectedItem:  nil,
-			expectedError: ErrorQueueUnderflow,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.True(t, q.IsEmpty())
-			},
-		},
-		{
-			name: "dequeue single item from queue",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("item")
-				return q
-			},
-			expectedItem:  "item",
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.True(t, q.IsEmpty())
-				assert.Equal(t, 1, q.head)
-				assert.Equal(t, 1, q.tail)
-			},
-		},
-		{
-			name: "dequeue from queue with multiple items returns first enqueued",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("first")
-				_ = q.Enqueue("second")
-				_ = q.Enqueue("third")
-				return q
-			},
-			expectedItem:  "first",
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.Equal(t, 1, q.head)
-				assert.Equal(t, 3, q.tail)
-				assert.Nil(t, q.items[0]) // Should be cleared
-				assert.Equal(t, "second", q.items[1])
-				assert.Equal(t, "third", q.items[2])
-			},
-		},
-		{
-			name: "dequeue nil item",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue(nil)
-				return q
-			},
-			expectedItem:  nil,
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.True(t, q.IsEmpty())
-			},
-		},
-	}
+func TestPeek(t *testing.T) {
+	t.Run("successful peek", func(t *testing.T) {
+		q := NewQueue[int](3)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := tt.setup()
+		item1 := 10
+		item2 := 20
 
-			item, err := queue.Dequeue()
+		require.NoError(t, q.Enqueue(&item1))
+		require.NoError(t, q.Enqueue(&item2))
 
-			if tt.expectedError != nil {
-				require.Error(t, err)
-				assert.ErrorIs(t, err, tt.expectedError)
-			} else {
-				require.NoError(t, err)
-			}
+		// Peek should return the first item without removing it
+		peeked, err := q.Peek()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, *peeked)
 
-			assert.Equal(t, tt.expectedItem, item)
-			tt.checkQueue(t, queue)
-		})
-	}
+		// Queue should remain unchanged
+		assert.False(t, q.IsEmpty())
+
+		// Peek again should return the same item
+		peeked, err = q.Peek()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, *peeked)
+
+		// Dequeue should return the same item that was peeked
+		dequeued, err := q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, 10, *dequeued)
+	})
+
+	t.Run("peek empty queue", func(t *testing.T) {
+		q := NewQueue[int](3)
+
+		_, err := q.Peek()
+		assert.Equal(t, ErrorQueueUnderflow, err)
+	})
 }
 
-func TestQueue_Peek(t *testing.T) {
-	tests := []struct {
-		name          string
-		setup         func() *Queue
-		expectedItem  any
-		expectedError error
-		checkQueue    func(t *testing.T, q *Queue) // Peek should not modify the queue
-	}{
-		{
-			name: "peek empty queue returns error",
-			setup: func() *Queue {
-				return NewQueue(5)
-			},
-			expectedItem:  nil,
-			expectedError: ErrorQueueUnderflow,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.True(t, q.IsEmpty())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 0, q.tail)
-			},
-		},
-		{
-			name: "peek single item queue",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("item")
-				return q
-			},
-			expectedItem:  "item",
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 1, q.tail)
-				assert.Equal(t, "item", q.items[0])
-			},
-		},
-		{
-			name: "peek queue with multiple items returns first enqueued",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue("first")
-				_ = q.Enqueue("second")
-				_ = q.Enqueue("third")
-				return q
-			},
-			expectedItem:  "first",
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 3, q.tail)
-				assert.Equal(t, "first", q.items[0])
-				assert.Equal(t, "second", q.items[1])
-				assert.Equal(t, "third", q.items[2])
-			},
-		},
-		{
-			name: "peek nil item",
-			setup: func() *Queue {
-				q := NewQueue(5)
-				_ = q.Enqueue(nil)
-				return q
-			},
-			expectedItem:  nil,
-			expectedError: nil,
-			checkQueue: func(t *testing.T, q *Queue) {
-				assert.False(t, q.IsEmpty())
-				assert.Equal(t, 0, q.head)
-				assert.Equal(t, 1, q.tail)
-				assert.Nil(t, q.items[0])
-			},
-		},
-	}
+func TestCircularBehavior(t *testing.T) {
+	q := NewQueue[int](3)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := tt.setup()
-			originalHead := queue.head
-			originalTail := queue.tail
+	// Fill the queue
+	item1 := 1
+	item2 := 2
+	item3 := 3
+	require.NoError(t, q.Enqueue(&item1))
+	require.NoError(t, q.Enqueue(&item2))
+	require.NoError(t, q.Enqueue(&item3))
+	assert.True(t, q.IsFull())
 
-			item, err := queue.Peek()
+	// Dequeue one item
+	dequeued, err := q.Dequeue()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, *dequeued)
+	assert.False(t, q.IsFull())
 
-			if tt.expectedError != nil {
-				require.Error(t, err)
-				assert.ErrorIs(t, err, tt.expectedError)
-			} else {
-				require.NoError(t, err)
-			}
+	// Enqueue another item (should wrap around)
+	item4 := 4
+	require.NoError(t, q.Enqueue(&item4))
 
-			assert.Equal(t, tt.expectedItem, item)
+	// Dequeue remaining items to verify order
+	dequeued, err = q.Dequeue()
+	assert.NoError(t, err)
+	assert.Equal(t, 2, *dequeued)
 
-			// Ensure peek doesn't modify the queue
-			assert.Equal(t, originalHead, queue.head)
-			assert.Equal(t, originalTail, queue.tail)
-			tt.checkQueue(t, queue)
-		})
-	}
+	dequeued, err = q.Dequeue()
+	assert.NoError(t, err)
+	assert.Equal(t, 3, *dequeued)
+
+	dequeued, err = q.Dequeue()
+	assert.NoError(t, err)
+	assert.Equal(t, 4, *dequeued)
+
+	assert.True(t, q.IsEmpty())
 }
 
-func TestQueue_CircularBehavior(t *testing.T) {
-	tests := []struct {
-		name       string
-		operations func(t *testing.T, q *Queue)
-	}{
-		{
-			name: "circular enqueue and dequeue",
-			operations: func(t *testing.T, q *Queue) {
-				// Fill the queue
-				err := q.Enqueue("a")
-				require.NoError(t, err)
-				err = q.Enqueue("b")
-				require.NoError(t, err)
+func TestGenericTypes(t *testing.T) {
+	t.Run("string queue", func(t *testing.T) {
+		q := NewQueue[string](2)
 
-				assert.True(t, q.IsFull())
+		str1 := "hello"
+		str2 := "world"
 
-				// Dequeue one item
-				item, err := q.Dequeue()
-				require.NoError(t, err)
-				assert.Equal(t, "a", item)
-				assert.False(t, q.IsFull())
+		require.NoError(t, q.Enqueue(&str1))
+		require.NoError(t, q.Enqueue(&str2))
 
-				// Enqueue another item (should wrap around)
-				err = q.Enqueue("c")
-				require.NoError(t, err)
-				assert.True(t, q.IsFull())
+		dequeued, err := q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, "hello", *dequeued)
 
-				// Verify order: b, c
-				item, err = q.Dequeue()
-				require.NoError(t, err)
-				assert.Equal(t, "b", item)
+		dequeued, err = q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, "world", *dequeued)
+	})
 
-				item, err = q.Dequeue()
-				require.NoError(t, err)
-				assert.Equal(t, "c", item)
+	t.Run("struct queue", func(t *testing.T) {
+		type Person struct {
+			Name string
+			Age  int
+		}
 
-				assert.True(t, q.IsEmpty())
-			},
-		},
-		{
-			name: "multiple wrap arounds",
-			operations: func(t *testing.T, q *Queue) {
-				items := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+		q := NewQueue[Person](2)
 
-				for i, item := range items {
-					if i < 2 {
-						// Fill initially
-						err := q.Enqueue(item)
-						require.NoError(t, err)
-					} else {
-						// For subsequent items, dequeue one and enqueue one
-						dequeued, err := q.Dequeue()
-						require.NoError(t, err)
-						assert.Equal(t, items[i-2], dequeued)
+		person1 := Person{Name: "Alice", Age: 30}
+		person2 := Person{Name: "Bob", Age: 25}
 
-						err = q.Enqueue(item)
-						require.NoError(t, err)
-					}
-				}
+		require.NoError(t, q.Enqueue(&person1))
+		require.NoError(t, q.Enqueue(&person2))
 
-				// Dequeue remaining items
-				for i := len(items) - 2; i < len(items); i++ {
-					item, err := q.Dequeue()
-					require.NoError(t, err)
-					assert.Equal(t, items[i], item)
-				}
+		dequeued, err := q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, "Alice", dequeued.Name)
+		assert.Equal(t, 30, dequeued.Age)
 
-				assert.True(t, q.IsEmpty())
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(3) // Small queue to test circular behavior
-			tt.operations(t, queue)
-		})
-	}
+		dequeued, err = q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, "Bob", dequeued.Name)
+		assert.Equal(t, 25, dequeued.Age)
+	})
 }
 
-func TestQueue_SequentialOperations(t *testing.T) {
-	tests := []struct {
-		name       string
-		operations func(t *testing.T, q *Queue)
-	}{
-		{
-			name: "enqueue-dequeue-enqueue sequence",
-			operations: func(t *testing.T, q *Queue) {
-				// Enqueue first item
-				err := q.Enqueue("first")
-				require.NoError(t, err)
-				assert.False(t, q.IsEmpty())
+func TestEdgeCases(t *testing.T) {
+	t.Run("single element queue", func(t *testing.T) {
+		q := NewQueue[int](1)
 
-				// Peek should return first item
-				item, err := q.Peek()
-				require.NoError(t, err)
-				assert.Equal(t, "first", item)
+		item := 42
+		require.NoError(t, q.Enqueue(&item))
+		assert.True(t, q.IsFull())
 
-				// Dequeue should return first item
-				item, err = q.Dequeue()
-				require.NoError(t, err)
-				assert.Equal(t, "first", item)
-				assert.True(t, q.IsEmpty())
+		// Try to enqueue another item
+		item2 := 43
+		err := q.Enqueue(&item2)
+		assert.Equal(t, ErrorQueueOverflow, err)
 
-				// Enqueue second item
-				err = q.Enqueue("second")
-				require.NoError(t, err)
-				assert.False(t, q.IsEmpty())
+		// Dequeue the item
+		dequeued, err := q.Dequeue()
+		assert.NoError(t, err)
+		assert.Equal(t, 42, *dequeued)
+		assert.True(t, q.IsEmpty())
+	})
 
-				// Peek should return second item
-				item, err = q.Peek()
-				require.NoError(t, err)
-				assert.Equal(t, "second", item)
-			},
-		},
-		{
-			name: "multiple enqueue and dequeue operations",
-			operations: func(t *testing.T, q *Queue) {
-				items := []string{"a", "b", "c", "d", "e"}
+	t.Run("multiple enqueue/dequeue cycles", func(t *testing.T) {
+		q := NewQueue[int](3)
 
-				// Enqueue all items
-				for _, item := range items {
-					err := q.Enqueue(item)
-					require.NoError(t, err)
-				}
+		// First cycle
+		for i := 1; i <= 3; i++ {
+			item := i
+			require.NoError(t, q.Enqueue(&item))
+		}
 
-				// Queue should not be empty
-				assert.False(t, q.IsEmpty())
+		for i := 1; i <= 3; i++ {
+			dequeued, err := q.Dequeue()
+			assert.NoError(t, err)
+			assert.Equal(t, i, *dequeued)
+		}
+		assert.True(t, q.IsEmpty())
 
-				// Dequeue all items in FIFO order
-				for _, expectedItem := range items {
-					item, err := q.Dequeue()
-					require.NoError(t, err)
-					assert.Equal(t, expectedItem, item)
-				}
+		// Second cycle
+		for i := 4; i <= 6; i++ {
+			item := i
+			require.NoError(t, q.Enqueue(&item))
+		}
 
-				// Queue should be empty
-				assert.True(t, q.IsEmpty())
-			},
-		},
-		{
-			name: "alternating enqueue and peek operations",
-			operations: func(t *testing.T, q *Queue) {
-				// Enqueue and peek multiple times - should always see first item
-				err := q.Enqueue(1)
-				require.NoError(t, err)
-				item, err := q.Peek()
-				require.NoError(t, err)
-				assert.Equal(t, 1, item)
-
-				err = q.Enqueue(2)
-				require.NoError(t, err)
-				item, err = q.Peek()
-				require.NoError(t, err)
-				assert.Equal(t, 1, item) // Still first item
-
-				err = q.Enqueue(3)
-				require.NoError(t, err)
-				item, err = q.Peek()
-				require.NoError(t, err)
-				assert.Equal(t, 1, item) // Still first item
-
-				// Queue should have 3 items but peek always returns first
-				assert.False(t, q.IsEmpty())
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(10)
-			tt.operations(t, queue)
-		})
-	}
-}
-
-func TestQueue_ErrorConditions(t *testing.T) {
-	tests := []struct {
-		name      string
-		operation func(t *testing.T, q *Queue)
-	}{
-		{
-			name: "multiple dequeues from empty queue",
-			operation: func(t *testing.T, q *Queue) {
-				// First dequeue should return error
-				item, err := q.Dequeue()
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueUnderflow)
-				assert.Nil(t, item)
-
-				// Second dequeue should also return error
-				item, err = q.Dequeue()
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueUnderflow)
-				assert.Nil(t, item)
-
-				assert.True(t, q.IsEmpty())
-			},
-		},
-		{
-			name: "multiple peeks from empty queue",
-			operation: func(t *testing.T, q *Queue) {
-				// First peek should return error
-				item, err := q.Peek()
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueUnderflow)
-				assert.Nil(t, item)
-
-				// Second peek should also return error
-				item, err = q.Peek()
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueUnderflow)
-				assert.Nil(t, item)
-
-				assert.True(t, q.IsEmpty())
-			},
-		},
-		{
-			name: "dequeue until empty then continue dequeuing",
-			operation: func(t *testing.T, q *Queue) {
-				// Add some items
-				err := q.Enqueue("a")
-				require.NoError(t, err)
-				err = q.Enqueue("b")
-				require.NoError(t, err)
-
-				// Dequeue all items
-				_, err = q.Dequeue()
-				require.NoError(t, err)
-				_, err = q.Dequeue()
-				require.NoError(t, err)
-
-				assert.True(t, q.IsEmpty())
-
-				// Try to dequeue from empty queue
-				item, err := q.Dequeue()
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueUnderflow)
-				assert.Nil(t, item)
-			},
-		},
-		{
-			name: "enqueue until full then continue enqueuing",
-			operation: func(t *testing.T, q *Queue) {
-				// Fill the queue (size 3, but can only hold 2 items due to circular implementation)
-				err := q.Enqueue("a")
-				require.NoError(t, err)
-				err = q.Enqueue("b")
-				require.NoError(t, err)
-
-				assert.True(t, q.IsFull())
-
-				// Try to enqueue to full queue
-				err = q.Enqueue("c")
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueOverflow)
-
-				// Try again
-				err = q.Enqueue("d")
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrorQueueOverflow)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			queue := NewQueue(3)
-			tt.operation(t, queue)
-		})
-	}
+		for i := 4; i <= 6; i++ {
+			dequeued, err := q.Dequeue()
+			assert.NoError(t, err)
+			assert.Equal(t, i, *dequeued)
+		}
+		assert.True(t, q.IsEmpty())
+	})
 }

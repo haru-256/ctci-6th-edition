@@ -11,8 +11,8 @@ var (
 )
 
 // Queue represents a generic circular queue using a fixed-size array.
-type Queue struct {
-	items []any
+type Queue[T any] struct {
+	items []*T
 	size  int
 	head  int
 	tail  int
@@ -20,9 +20,12 @@ type Queue struct {
 
 // NewQueue creates and returns a new Queue with the specified capacity.
 // The queue uses a circular buffer implementation for efficient space utilization.
-func NewQueue(size int) *Queue {
-	return &Queue{
-		items: make([]any, size),
+func NewQueue[T any](size int) *Queue[T] {
+	if size <= 0 {
+		panic("queue size must be greater than 0")
+	}
+	return &Queue[T]{
+		items: make([]*T, size),
 		size:  size,
 		head:  0,
 		tail:  0,
@@ -31,19 +34,22 @@ func NewQueue(size int) *Queue {
 
 // IsEmpty checks if the queue is empty.
 // Returns true if there are no elements in the queue.
-func (q *Queue) IsEmpty() bool {
-	return q.head == q.tail
+func (q *Queue[T]) IsEmpty() bool {
+	return q.head == q.tail && q.items[q.head] == nil
 }
 
 // IsFull checks if the queue is full.
 // Returns true if the queue has reached its maximum capacity.
-func (q *Queue) IsFull() bool {
-	return (q.tail+1)%q.size == q.head
+func (q *Queue[T]) IsFull() bool {
+	if q.IsEmpty() {
+		return false
+	}
+	return q.tail%q.size == q.head
 }
 
 // Enqueue adds an item to the rear of the queue.
 // Returns ErrorQueueOverflow if the queue is full.
-func (q *Queue) Enqueue(item any) error {
+func (q *Queue[T]) Enqueue(item *T) error {
 	if q.IsFull() {
 		return ErrorQueueOverflow
 	}
@@ -54,7 +60,7 @@ func (q *Queue) Enqueue(item any) error {
 
 // Dequeue removes and returns the front item from the queue.
 // Returns ErrorQueueUnderflow if the queue is empty.
-func (q *Queue) Dequeue() (any, error) {
+func (q *Queue[T]) Dequeue() (*T, error) {
 	if q.IsEmpty() {
 		return nil, ErrorQueueUnderflow
 	}
@@ -66,7 +72,7 @@ func (q *Queue) Dequeue() (any, error) {
 
 // Peek returns the front item from the queue without removing it.
 // Returns ErrorQueueUnderflow if the queue is empty.
-func (q *Queue) Peek() (any, error) {
+func (q *Queue[T]) Peek() (*T, error) {
 	if q.IsEmpty() {
 		return nil, ErrorQueueUnderflow
 	}
