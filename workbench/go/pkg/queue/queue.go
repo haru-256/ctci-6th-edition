@@ -56,11 +56,11 @@ type Queue[T any] struct {
 //
 //	queue := NewQueue[int](10)    // Creates a queue that can hold 10 integers
 //	queue := NewQueue[string](5)  // Creates a queue that can hold 5 strings
-func NewQueue[T any](size int) Queue[T] {
+func NewQueue[T any](size int) *Queue[T] {
 	if size <= 0 {
 		panic("queue size must be greater than 0")
 	}
-	return Queue[T]{
+	return &Queue[T]{
 		items: make([]T, size),
 		size:  size,
 		count: 0,

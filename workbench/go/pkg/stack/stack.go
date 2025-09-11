@@ -50,11 +50,11 @@ type Stack[T any] struct {
 //
 //	stack := NewStack[int](10) // Creates a stack that can hold 10 integers
 //	stack := NewStack[string](5) // Creates a stack that can hold 5 strings
-func NewStack[T any](size int) Stack[T] {
+func NewStack[T any](size int) *Stack[T] {
 	if size <= 0 {
 		panic("stack size must be greater than 0")
 	}
-	return Stack[T]{
+	return &Stack[T]{
 		items: make([]T, size),
 		size:  size,
 		count: 0,
