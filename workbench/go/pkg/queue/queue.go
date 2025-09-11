@@ -78,7 +78,7 @@ func (q *Queue[T]) IsEmpty() bool {
 // IsFull checks if the queue is full.
 // Returns true if the queue has reached its maximum capacity.
 func (q *Queue[T]) IsFull() bool {
-	return q.count >= q.size
+	return q.count == q.size
 }
 
 // Enqueue adds an item to the rear of the queue.
