@@ -328,11 +328,20 @@ func ExampleQueue_Enqueue() {
 func ExampleQueue_Dequeue() {
 	q := NewQueue[int](3)
 	err := q.Enqueue(10)
-	require.NoError(nil, err)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
 	err = q.Enqueue(20)
-	require.NoError(nil, err)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
 	err = q.Enqueue(30)
-	require.NoError(nil, err)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
 
 	// Dequeue items in FIFO order
 	item, err := q.Dequeue()
