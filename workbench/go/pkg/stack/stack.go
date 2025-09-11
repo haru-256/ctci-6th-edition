@@ -70,7 +70,7 @@ func (s *Stack[T]) IsEmpty() bool {
 // IsFull checks if the stack is full.
 // Returns true if the stack has reached its maximum capacity.
 func (s *Stack[T]) IsFull() bool {
-	return s.count >= s.size
+	return s.count == s.size
 }
 
 // Push adds an item to the top of the stack.
