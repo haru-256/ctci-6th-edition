@@ -1,7 +1,7 @@
 [tools]
 act = "latest"
 direnv = "2.37.1"
-go = "1.25.0"
+go = "1.25.1"
 golangci-lint = "2.4.0"
 rust = "1.89.0"
-uv = "0.8.11"
+uv = "0.8.16"
