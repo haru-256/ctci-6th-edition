@@ -68,12 +68,18 @@ func NewStack[T any](size int) *Stack[T] {
 // IsEmpty checks if the stack is empty.
 // Returns true if there are no elements in the stack.
 func (s *Stack[T]) IsEmpty() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count == 0
 }
 
 // IsFull checks if the stack is full.
 // Returns true if the stack has reached its maximum capacity.
 func (s *Stack[T]) IsFull() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count == s.size
 }
 
@@ -150,11 +156,17 @@ func (s *Stack[T]) Peek() (T, error) {
 // Size returns the maximum capacity of the stack.
 // This is the size that was specified when the stack was created.
 func (s *Stack[T]) Size() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.size
 }
 
 // Count returns the current number of items in the stack.
 // This value ranges from 0 (empty) to Size() (full).
 func (s *Stack[T]) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count
 }

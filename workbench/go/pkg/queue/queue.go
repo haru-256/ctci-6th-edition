@@ -76,12 +76,18 @@ func NewQueue[T any](size int) *Queue[T] {
 // IsEmpty checks if the queue is empty.
 // Returns true if there are no elements in the queue.
 func (q *Queue[T]) IsEmpty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count == 0
 }
 
 // IsFull checks if the queue is full.
 // Returns true if the queue has reached its maximum capacity.
 func (q *Queue[T]) IsFull() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count == q.size
 }
 
@@ -161,11 +167,17 @@ func (q *Queue[T]) Peek() (T, error) {
 // Size returns the maximum capacity of the queue.
 // This is the size that was specified when the queue was created.
 func (q *Queue[T]) Size() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.size
 }
 
 // Count returns the current number of items in the queue.
 // This value ranges from 0 (empty) to Size() (full).
 func (q *Queue[T]) Count() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count
 }
