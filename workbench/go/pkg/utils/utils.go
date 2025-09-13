@@ -47,7 +47,7 @@ func WithMaxCapacity(maxCapacity int) Option {
 //
 //	// Read allowing lines up to 1 MiB
 //	lines := utils.ScanStdin(utils.WithMaxCapacity(1 << 20))
-func ScanStdin(opts ...Option) []string {
+func ScanStdin(opts ...Option) ([]string, error) {
 	options := &options{
 		maxCapacity: bufio.MaxScanTokenSize,
 	}
@@ -63,5 +63,9 @@ func ScanStdin(opts ...Option) []string {
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
-	return lines
+	err := scanner.Err()
+	if err != nil {
+		return lines, err
+	}
+	return lines, nil
 }

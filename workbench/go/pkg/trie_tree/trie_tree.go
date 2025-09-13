@@ -89,11 +89,6 @@ func (t *TrieTree[K, V]) Delete(key []K) error {
 	var zero V
 	current.value = zero
 
-	// If the node has children, we can't delete it
-	if len(current.children) > 0 {
-		return nil
-	}
-
 	// Recursively delete nodes that are no longer needed
 	t.deleteRecursive(t.root, key, 0)
 	return nil
@@ -176,6 +171,10 @@ func (t *TrieTree[K, V]) collectKeys(current *node[K, V], currentKey []K, result
 		*results = append(*results, keyCopy)
 	}
 	for k, child := range current.children {
-		t.collectKeys(child, append(currentKey, k), results)
+		// append function can return a reference to the same underlying array, so we need to be careful
+		nextKey := make([]K, len(currentKey)+1)
+		copy(nextKey, currentKey)
+		nextKey[len(currentKey)] = k
+		t.collectKeys(child, nextKey, results)
 	}
 }
