@@ -2,6 +2,7 @@ package trietree
 
 import (
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -323,6 +324,105 @@ func TestTrieTree_DifferentTypes(t *testing.T) {
 	intResult, found := stringTrie.Search(stringKey)
 	assert.True(t, found, "Should find string key")
 	assert.Equal(t, 42, intResult, "Should return correct integer value")
+}
+
+func TestTrieTree_KeysWithPrefix_EmptyPrefixReturnsAll(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	data := map[string]string{
+		"alpha":    "a",
+		"beta":     "b",
+		"gamma":    "g",
+		"alphabet": "ab",
+	}
+
+	for k, v := range data {
+		trie.Insert([]byte(k), v)
+	}
+
+	keys, err := trie.KeysWithPrefix([]byte(""))
+	require.NoError(t, err)
+	require.Len(t, keys, len(data))
+
+	got := make([]string, 0, len(keys))
+	for _, k := range keys {
+		got = append(got, string(k))
+	}
+	want := make([]string, 0, len(data))
+	for k := range data {
+		want = append(want, k)
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	assert.Equal(t, want, got)
+}
+
+func TestTrieTree_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	trie := NewTrieTree[byte, string]()
+
+	keys := []string{
+		"a", "ab", "abc", "abcd", "abcde",
+		"b", "bc", "bcd", "bcde",
+		"c", "cd", "cde",
+	}
+
+	// Concurrent inserts
+	var wg sync.WaitGroup
+	for _, k := range keys {
+		k := k // capture
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			trie.Insert([]byte(k), k)
+		}()
+	}
+	wg.Wait()
+
+	// Concurrent reads
+	for _, k := range keys {
+		k := k
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			v, ok := trie.Search([]byte(k))
+			if !ok || v != k {
+				t.Errorf("search failed for %q: ok=%v v=%q", k, ok, v)
+			}
+		}()
+	}
+	wg.Wait()
+
+	// Mixed deletes and reads
+	for i, k := range keys {
+		k := k
+		if i%2 == 0 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = trie.Delete([]byte(k)) // ignore error; concurrent delete may happen twice in theory
+			}()
+		} else {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				trie.Search([]byte(k))
+			}()
+		}
+	}
+	wg.Wait()
+
+	// Finally, ensure at least half the keys remain (odd indices)
+	remaining := 0
+	for i, k := range keys {
+		if i%2 == 1 {
+			if _, ok := trie.Search([]byte(k)); ok {
+				remaining++
+			}
+		}
+	}
+	assert.GreaterOrEqual(t, remaining, len(keys)/2)
 }
 
 // Benchmark tests

@@ -1,6 +1,9 @@
 package stack
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	// ErrorStackOverflow is returned when trying to push to a full stack.
@@ -28,6 +31,7 @@ type Stack[T any] struct {
 	items []T // slice to store stack items
 	size  int // maximum number of items the stack can hold
 	count int // current number of items in the stack
+	mu    sync.RWMutex
 }
 
 // NewStack creates and returns a new Stack with the specified capacity.
@@ -83,6 +87,9 @@ func (s *Stack[T]) IsFull() bool {
 //	    // handle stack overflow
 //	}
 func (s *Stack[T]) Push(item T) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.IsFull() {
 		return ErrorStackOverflow
 	}
@@ -104,6 +111,9 @@ func (s *Stack[T]) Push(item T) error {
 //	    fmt.Println(item) // use the popped item
 //	}
 func (s *Stack[T]) Pop() (T, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var zero T
 	if s.IsEmpty() {
 		return zero, ErrorStackUnderflow
@@ -127,6 +137,9 @@ func (s *Stack[T]) Pop() (T, error) {
 //	    fmt.Println(item) // use the top item without removing it
 //	}
 func (s *Stack[T]) Peek() (T, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	if s.IsEmpty() {
 		var zero T
 		return zero, ErrorStackUnderflow

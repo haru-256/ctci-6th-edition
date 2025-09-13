@@ -1,6 +1,9 @@
 package queue
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	// ErrorQueueOverflow is returned when trying to enqueue to a full queue.
@@ -33,6 +36,7 @@ type Queue[T any] struct {
 	count int // current number of items in the queue
 	head  int
 	tail  int
+	mu    sync.RWMutex
 }
 
 // NewQueue creates and returns a new Queue with the specified capacity.
@@ -92,6 +96,9 @@ func (q *Queue[T]) IsFull() bool {
 //	    // handle queue overflow
 //	}
 func (q *Queue[T]) Enqueue(item T) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	if q.IsFull() {
 		return ErrorQueueOverflow
 	}
@@ -114,6 +121,9 @@ func (q *Queue[T]) Enqueue(item T) error {
 //	    fmt.Println(item) // use the dequeued item
 //	}
 func (q *Queue[T]) Dequeue() (T, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	var zero T
 	if q.IsEmpty() {
 		return zero, ErrorQueueUnderflow
@@ -138,6 +148,9 @@ func (q *Queue[T]) Dequeue() (T, error) {
 //	    fmt.Println(item) // use the front item without removing it
 //	}
 func (q *Queue[T]) Peek() (T, error) {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	if q.IsEmpty() {
 		var zero T
 		return zero, ErrorQueueUnderflow
