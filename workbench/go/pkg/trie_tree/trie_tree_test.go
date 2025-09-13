@@ -1,0 +1,475 @@
+package trietree
+
+import (
+	"sort"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestTrieTree_NewTrieTree(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+	require.NotNil(t, trie, "NewTrieTree should return a valid trie")
+	require.NotNil(t, trie.root, "NewTrieTree should create a valid root node")
+	assert.False(t, trie.root.isEnd, "Root node should not be marked as end")
+	assert.Equal(t, 0, len(trie.root.children), "Root node should have no children initially")
+}
+
+func TestTrieTree_Insert_and_Search(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Test basic insertion and search
+	key1 := []byte("hello")
+	value1 := "world"
+	trie.Insert(key1, value1)
+
+	result, found := trie.Search(key1)
+	assert.True(t, found, "Should find inserted key")
+	assert.Equal(t, value1, result, "Should return correct value")
+
+	// Test searching non-existent key
+	key2 := []byte("goodbye")
+	_, found = trie.Search(key2)
+	assert.False(t, found, "Should not find non-existent key")
+
+	// Test inserting multiple keys
+	key3 := []byte("help")
+	value3 := "assistance"
+	trie.Insert(key3, value3)
+
+	result, found = trie.Search(key3)
+	assert.True(t, found, "Should find second inserted key")
+	assert.Equal(t, value3, result, "Should return correct value for second key")
+
+	// Original key should still be there
+	result, found = trie.Search(key1)
+	assert.True(t, found, "Original key should still exist")
+	assert.Equal(t, value1, result, "Original key should have correct value")
+}
+
+func TestTrieTree_Insert_OverwriteValue(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	key := []byte("test")
+	value1 := "first"
+	value2 := "second"
+
+	trie.Insert(key, value1)
+	trie.Insert(key, value2) // Overwrite
+
+	result, found := trie.Search(key)
+	assert.True(t, found, "Should find the key")
+	assert.Equal(t, value2, result, "Should return overwritten value")
+}
+
+func TestTrieTree_Insert_EmptyKey(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	key := []byte{}
+	value := "empty"
+	trie.Insert(key, value)
+
+	result, found := trie.Search(key)
+	assert.True(t, found, "Should find empty key")
+	assert.Equal(t, value, result, "Should return correct value for empty key")
+}
+
+func TestTrieTree_StartsWith(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Insert some keys
+	trie.Insert([]byte("hello"), "world")
+	trie.Insert([]byte("help"), "assistance")
+	trie.Insert([]byte("helicopter"), "aircraft")
+
+	tests := []struct {
+		prefix   []byte
+		expected bool
+	}{
+		{[]byte("hel"), true},
+		{[]byte("hello"), true},
+		{[]byte("help"), true},
+		{[]byte("helicopter"), true},
+		{[]byte("helicopters"), false},
+		{[]byte("world"), false},
+		{[]byte(""), true}, // Empty prefix should match
+		{[]byte("xyz"), false},
+	}
+
+	for _, test := range tests {
+		result := trie.StartsWith(test.prefix)
+		assert.Equal(t, test.expected, result, "StartsWith(%s) should return %v", test.prefix, test.expected)
+	}
+}
+
+func TestTrieTree_Delete(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Insert test data
+	trie.Insert([]byte("hello"), "world")
+	trie.Insert([]byte("help"), "assistance")
+	trie.Insert([]byte("helicopter"), "aircraft")
+
+	// Test deleting non-existent key
+	err := trie.Delete([]byte("nonexistent"))
+	assert.Error(t, err, "Should return error when deleting non-existent key")
+	assert.Equal(t, ErrKeyNotFound, err, "Should return ErrKeyNotFound")
+
+	// Test deleting existing key
+	err = trie.Delete([]byte("help"))
+	assert.NoError(t, err, "Should not return error when deleting existing key")
+
+	// Verify key is deleted
+	_, found := trie.Search([]byte("help"))
+	assert.False(t, found, "Deleted key should not be found")
+
+	// Verify other keys still exist
+	_, found = trie.Search([]byte("hello"))
+	assert.True(t, found, "Other keys should still exist after deletion")
+
+	_, found = trie.Search([]byte("helicopter"))
+	assert.True(t, found, "Other keys should still exist after deletion")
+
+	// Verify prefix still works
+	assert.True(t, trie.StartsWith([]byte("hel")), "Prefix should still work after deletion")
+}
+
+func TestTrieTree_Delete_EmptyKey(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	err := trie.Delete([]byte{})
+	assert.Error(t, err, "Should return error when deleting empty key")
+	assert.Equal(t, ErrKeyNotFound, err, "Should return ErrKeyNotFound for empty key")
+}
+
+func TestTrieTree_Delete_PrefixKey(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Insert keys where one is prefix of another
+	trie.Insert([]byte("test"), "value1")
+	trie.Insert([]byte("testing"), "value2")
+
+	// Delete the shorter key
+	err := trie.Delete([]byte("test"))
+	assert.NoError(t, err, "Should be able to delete prefix key")
+
+	// Verify shorter key is deleted
+	_, found := trie.Search([]byte("test"))
+	assert.False(t, found, "Deleted prefix key should not be found")
+
+	// Verify longer key still exists
+	result, found := trie.Search([]byte("testing"))
+	assert.True(t, found, "Longer key should still exist after deleting prefix")
+	assert.Equal(t, "value2", result, "Longer key should have correct value")
+}
+
+func TestTrieTree_Size(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Empty trie
+	assert.Equal(t, 0, trie.Size(), "Empty trie size should be 0")
+
+	// Add keys one by one
+	keys := [][]byte{
+		[]byte("hello"),
+		[]byte("help"),
+		[]byte("helicopter"),
+		[]byte("world"),
+	}
+
+	for i, key := range keys {
+		trie.Insert(key, "value")
+		expectedSize := i + 1
+		assert.Equal(t, expectedSize, trie.Size(), "Size should be %d after inserting %d keys", expectedSize, expectedSize)
+	}
+
+	// Delete a key
+	err := trie.Delete([]byte("help"))
+	if err != nil {
+		t.Errorf("Failed to delete key: %v", err)
+	}
+	assert.Equal(t, len(keys)-1, trie.Size(), "Size should be %d after deleting 1 key", len(keys)-1)
+
+	// Insert duplicate (should not increase size)
+	trie.Insert([]byte("hello"), "new value")
+	assert.Equal(t, len(keys)-1, trie.Size(), "Size should remain %d after overwriting existing key", len(keys)-1)
+}
+
+func TestTrieTree_IsEmpty(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Empty trie
+	assert.True(t, trie.IsEmpty(), "New trie should be empty")
+
+	// Add a key
+	trie.Insert([]byte("test"), "value")
+	assert.False(t, trie.IsEmpty(), "Trie with keys should not be empty")
+
+	// Delete the key
+	err := trie.Delete([]byte("test"))
+	if err != nil {
+		t.Errorf("Failed to delete key: %v", err)
+	}
+	assert.True(t, trie.IsEmpty(), "Trie should be empty after deleting all keys")
+}
+
+func TestTrieTree_Keys(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Empty trie
+	keys := trie.Keys()
+	assert.Empty(t, keys, "Empty trie should return empty keys slice")
+
+	// Add some keys
+	expectedKeys := [][]byte{
+		[]byte("hello"),
+		[]byte("help"),
+		[]byte("helicopter"),
+		[]byte("world"),
+	}
+
+	for _, key := range expectedKeys {
+		trie.Insert(key, "value")
+	}
+
+	keys = trie.Keys()
+	assert.Len(t, keys, len(expectedKeys), "Should return correct number of keys")
+
+	// Convert to strings for easier comparison
+	var resultStrings []string
+	var expectedStrings []string
+
+	for _, key := range keys {
+		resultStrings = append(resultStrings, string(key))
+	}
+	for _, key := range expectedKeys {
+		expectedStrings = append(expectedStrings, string(key))
+	}
+
+	sort.Strings(resultStrings)
+	sort.Strings(expectedStrings)
+
+	assert.Equal(t, expectedStrings, resultStrings, "Should return all inserted keys")
+}
+
+func TestTrieTree_KeysWithPrefix(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Insert test data
+	testData := map[string]string{
+		"hello":      "world",
+		"help":       "assistance",
+		"helicopter": "aircraft",
+		"world":      "earth",
+		"wonder":     "amazing",
+	}
+
+	for k, v := range testData {
+		trie.Insert([]byte(k), v)
+	}
+
+	tests := []struct {
+		prefix   []byte
+		expected []string
+	}{
+		{[]byte("hel"), []string{"hello", "help", "helicopter"}},
+		{[]byte("hello"), []string{"hello"}},
+		{[]byte("w"), []string{"world", "wonder"}},
+		{[]byte("wor"), []string{"world"}},
+		{[]byte("xyz"), []string{}}, // No matches
+	}
+
+	for _, test := range tests {
+		keys, err := trie.KeysWithPrefix(test.prefix)
+
+		if len(test.expected) == 0 {
+			// Expecting no matches
+			assert.Error(t, err, "KeysWithPrefix(%s) should return error for non-existent prefix", test.prefix)
+			continue
+		}
+
+		assert.NoError(t, err, "KeysWithPrefix(%s) should not return error", test.prefix)
+		assert.Len(t, keys, len(test.expected), "KeysWithPrefix(%s) should return %d keys", test.prefix, len(test.expected))
+
+		// Convert to strings for comparison
+		var resultStrings []string
+		for _, key := range keys {
+			resultStrings = append(resultStrings, string(key))
+		}
+
+		sort.Strings(resultStrings)
+		sort.Strings(test.expected)
+
+		assert.Equal(t, test.expected, resultStrings, "KeysWithPrefix(%s) should return correct keys", test.prefix)
+	}
+}
+
+func TestTrieTree_DifferentTypes(t *testing.T) {
+	// Test with int keys
+	intTrie := NewTrieTree[int, string]()
+	intKey := []int{1, 2, 3}
+	intTrie.Insert(intKey, "integer key")
+
+	result, found := intTrie.Search(intKey)
+	assert.True(t, found, "Should find integer key")
+	assert.Equal(t, "integer key", result, "Should return correct value for integer key")
+
+	// Test with string keys
+	stringTrie := NewTrieTree[string, int]()
+	stringKey := []string{"hello", "world"}
+	stringTrie.Insert(stringKey, 42)
+
+	intResult, found := stringTrie.Search(stringKey)
+	assert.True(t, found, "Should find string key")
+	assert.Equal(t, 42, intResult, "Should return correct integer value")
+}
+
+// Benchmark tests
+func BenchmarkTrieTree_Insert(b *testing.B) {
+	trie := NewTrieTree[byte, string]()
+	key := []byte("benchmark")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		trie.Insert(key, "value")
+	}
+}
+
+func BenchmarkTrieTree_Search(b *testing.B) {
+	trie := NewTrieTree[byte, string]()
+	key := []byte("benchmark")
+	trie.Insert(key, "value")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		trie.Search(key)
+	}
+}
+
+func BenchmarkTrieTree_Delete(b *testing.B) {
+	trie := NewTrieTree[byte, string]()
+	key := []byte("benchmark")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		trie.Insert(key, "value")
+		b.StartTimer()
+		err := trie.Delete(key)
+		require.NoError(b, err, "Delete should not fail in benchmark")
+	}
+}
+
+// Additional edge case tests
+func TestTrieTree_EdgeCases(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Test with nil-like behavior (empty trie operations)
+	keys := trie.Keys()
+	assert.Empty(t, keys, "Empty trie should return empty keys")
+
+	// Test deleting from empty trie
+	err := trie.Delete([]byte("nonexistent"))
+	assert.Equal(t, ErrKeyNotFound, err, "Deleting from empty trie should return ErrKeyNotFound")
+
+	// Test StartsWith on empty trie
+	assert.True(t, trie.StartsWith([]byte{}), "Empty prefix should always return true")
+	assert.False(t, trie.StartsWith([]byte("test")), "Non-empty prefix on empty trie should return false")
+
+	// Test KeysWithPrefix on empty trie
+	_, err = trie.KeysWithPrefix([]byte("test"))
+	assert.Equal(t, ErrKeyNotFound, err, "KeysWithPrefix on empty trie should return error")
+}
+
+func TestTrieTree_LargeKey(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Test with a very large key
+	largeKey := make([]byte, 1000)
+	for i := range largeKey {
+		largeKey[i] = byte(i % 256)
+	}
+
+	trie.Insert(largeKey, "large")
+	result, found := trie.Search(largeKey)
+	assert.True(t, found, "Should find large key")
+	assert.Equal(t, "large", result, "Should return correct value for large key")
+
+	// Delete large key
+	err := trie.Delete(largeKey)
+	assert.NoError(t, err, "Should be able to delete large key")
+
+	_, found = trie.Search(largeKey)
+	assert.False(t, found, "Large key should be deleted")
+}
+
+func TestTrieTree_SpecialValues(t *testing.T) {
+	trie := NewTrieTree[byte, *string]()
+
+	// Test with nil pointer value
+	key := []byte("test")
+	var nilValue *string = nil
+	trie.Insert(key, nilValue)
+
+	result, found := trie.Search(key)
+	assert.True(t, found, "Should find key with nil value")
+	assert.Nil(t, result, "Should preserve nil value")
+
+	// Test with zero-value string
+	stringTrie := NewTrieTree[byte, string]()
+	stringTrie.Insert(key, "")
+
+	stringResult, found := stringTrie.Search(key)
+	assert.True(t, found, "Should find key with empty string value")
+	assert.Equal(t, "", stringResult, "Should preserve empty string value")
+}
+
+func TestTrieTree_ConcurrentPrefixes(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	// Insert keys with shared prefixes
+	trie.Insert([]byte("a"), "1")
+	trie.Insert([]byte("ab"), "2")
+	trie.Insert([]byte("abc"), "3")
+	trie.Insert([]byte("abcd"), "4")
+	trie.Insert([]byte("abcde"), "5")
+
+	// Test that all keys exist
+	expectedValues := map[string]string{
+		"a":     "1",
+		"ab":    "2",
+		"abc":   "3",
+		"abcd":  "4",
+		"abcde": "5",
+	}
+
+	for keyStr, expectedValue := range expectedValues {
+		result, found := trie.Search([]byte(keyStr))
+		assert.True(t, found, "Key %s should be found", keyStr)
+		assert.Equal(t, expectedValue, result, "Key %s should have correct value", keyStr)
+	}
+
+	// Test size
+	assert.Equal(t, 5, trie.Size(), "Should have 5 keys")
+
+	// Delete middle key and verify others remain
+	err := trie.Delete([]byte("abc"))
+	assert.NoError(t, err, "Should be able to delete middle key")
+
+	// Verify deleted key is gone
+	_, found := trie.Search([]byte("abc"))
+	assert.False(t, found, "Deleted key should not be found")
+
+	// Verify other keys still exist
+	for keyStr, expectedValue := range expectedValues {
+		if keyStr == "abc" {
+			continue // Skip the deleted key
+		}
+		result, exists := trie.Search([]byte(keyStr))
+		assert.True(t, exists, "Key %s should still exist after deleting abc", keyStr)
+		assert.Equal(t, expectedValue, result, "Key %s should have correct value", keyStr)
+	}
+
+	assert.Equal(t, 4, trie.Size(), "Should have 4 keys after deletion")
+}
