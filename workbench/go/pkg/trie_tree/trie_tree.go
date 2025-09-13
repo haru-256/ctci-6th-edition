@@ -139,7 +139,7 @@ func (t *TrieTree[K, V]) sizeRecursive(current *node[K, V]) int {
 }
 
 func (t *TrieTree[K, V]) IsEmpty() bool {
-	return t.Size() == 0
+	return !t.root.isEnd && len(t.root.children) == 0
 }
 
 func (t *TrieTree[K, V]) Keys() [][]K {
