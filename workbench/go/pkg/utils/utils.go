@@ -36,8 +36,8 @@ func WithMaxCapacity(maxCapacity int) Option {
 //   - This function accumulates all lines in memory before returning; consider
 //     input size when using it.
 //   - Errors from bufio.Scanner (including bufio.ErrTooLong when a line exceeds
-//     the configured capacity) are not returned; scanning stops and any lines
-//     collected up to that point are returned. If you expect very long lines,
+//     the configured capacity) are returned. Scanning stops, and any lines
+//     collected up to that point are returned along with the error. If you expect very long lines,
 //     pass a larger capacity via WithMaxCapacity.
 //
 // Example:
