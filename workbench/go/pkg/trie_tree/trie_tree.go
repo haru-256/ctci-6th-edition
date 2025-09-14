@@ -158,6 +158,9 @@ func (t *TrieTree[K, V]) sizeRecursive(current *node[K, V]) int {
 }
 
 func (t *TrieTree[K, V]) IsEmpty() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	return !t.root.isEnd && len(t.root.children) == 0
 }
 

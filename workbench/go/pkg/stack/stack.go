@@ -96,9 +96,13 @@ func (s *Stack[T]) Push(item T) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.IsFull() {
+	// Check if stack is full using direct field access.
+	// We cannot call s.IsFull() here because it would cause a deadlock:
+	// IsFull() tries to acquire an RLock while we already hold a Lock.
+	if s.count == s.size {
 		return ErrorStackOverflow
 	}
+
 	s.items[s.count] = item
 	s.count++
 	return nil
@@ -121,9 +125,13 @@ func (s *Stack[T]) Pop() (T, error) {
 	defer s.mu.Unlock()
 
 	var zero T
-	if s.IsEmpty() {
+	// Check if stack is empty using direct field access.
+	// We cannot call s.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire an RLock while we already hold a Lock.
+	if s.count == 0 {
 		return zero, ErrorStackUnderflow
 	}
+
 	item := s.items[s.count-1]
 	s.items[s.count-1] = zero // Clear the reference to prevent memory leaks
 	s.count--
@@ -146,10 +154,15 @@ func (s *Stack[T]) Peek() (T, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if s.IsEmpty() {
+	// Check if stack is empty using direct field access.
+	// We cannot call s.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire another RLock while we already hold one.
+	// Go's RWMutex doesn't support recursive locking.
+	if s.count == 0 {
 		var zero T
 		return zero, ErrorStackUnderflow
 	}
+
 	return s.items[s.count-1], nil
 }
 

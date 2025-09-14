@@ -105,9 +105,13 @@ func (q *Queue[T]) Enqueue(item T) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if q.IsFull() {
+	// Check if queue is full using direct field access.
+	// We cannot call q.IsFull() here because it would cause a deadlock:
+	// IsFull() tries to acquire an RLock while we already hold a Lock.
+	if q.count == q.size {
 		return ErrorQueueOverflow
 	}
+
 	q.items[q.tail] = item
 	q.tail = (q.tail + 1) % q.size
 	q.count++
@@ -131,9 +135,13 @@ func (q *Queue[T]) Dequeue() (T, error) {
 	defer q.mu.Unlock()
 
 	var zero T
-	if q.IsEmpty() {
+	// Check if queue is empty using direct field access.
+	// We cannot call q.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire an RLock while we already hold a Lock.
+	if q.count == 0 {
 		return zero, ErrorQueueUnderflow
 	}
+
 	item := q.items[q.head]
 	q.items[q.head] = zero // Clear the slot
 	q.head = (q.head + 1) % q.size
@@ -157,7 +165,11 @@ func (q *Queue[T]) Peek() (T, error) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
-	if q.IsEmpty() {
+	// Check if queue is empty using direct field access.
+	// We cannot call q.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire another RLock while we already hold one.
+	// Go's RWMutex doesn't support recursive locking.
+	if q.count == 0 {
 		var zero T
 		return zero, ErrorQueueUnderflow
 	}

@@ -284,7 +284,9 @@ func TestStack_ConcurrentPushPop(t *testing.T) {
 
 	g.Go(func() error {
 		for i := 0; i < 100; i++ {
-			_ = s.Push(i)
+			if err := s.Push(i); err != nil && err != ErrorStackOverflow {
+				return err
+			}
 		}
 		return nil
 	})
@@ -299,6 +301,45 @@ func TestStack_ConcurrentPushPop(t *testing.T) {
 	})
 	require.NoError(t, g.Wait(), "errgroup should not return error")
 	// Not strictly thread-safe, but should not panic or deadlock
+}
+
+func TestStack_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	s := NewStack[int](1000)
+	var g errgroup.Group
+	const numGoroutines = 10
+	const itemsPerGoroutine = 100
+
+	// Multiple pushers
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				if err := s.Push(i*itemsPerGoroutine + j); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	// Multiple poppers
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				_, err := s.Pop()
+				if err != nil && err != ErrorStackUnderflow {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait(), "stress test should not fail")
 }
 
 func TestStack_ZeroAndPointerValues(t *testing.T) {

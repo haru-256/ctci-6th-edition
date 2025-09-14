@@ -241,6 +241,45 @@ func TestQueue_ConcurrentEnqueueDequeue(t *testing.T) {
 	// Not strictly thread-safe, but should not panic or deadlock
 }
 
+func TestQueue_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	q := NewQueue[int](1000)
+	var g errgroup.Group
+	const numGoroutines = 10
+	const itemsPerGoroutine = 100
+
+	// Multiple producers
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				if err := q.Enqueue(i*itemsPerGoroutine + j); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	// Multiple consumers
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				_, err := q.Dequeue()
+				if err != nil && err != ErrorQueueUnderflow {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait(), "stress test should not fail")
+}
+
 func TestQueue_ZeroAndPointerValues(t *testing.T) {
 	q := NewQueue[*int](3)
 	var nilPtr *int
