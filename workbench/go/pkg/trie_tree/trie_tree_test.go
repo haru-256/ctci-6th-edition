@@ -1,11 +1,13 @@
 package trietree
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestTrieTree_NewTrieTree(t *testing.T) {
@@ -323,6 +325,171 @@ func TestTrieTree_DifferentTypes(t *testing.T) {
 	intResult, found := stringTrie.Search(stringKey)
 	assert.True(t, found, "Should find string key")
 	assert.Equal(t, 42, intResult, "Should return correct integer value")
+}
+
+func TestTrieTree_KeysWithPrefix_EmptyPrefixReturnsAll(t *testing.T) {
+	trie := NewTrieTree[byte, string]()
+
+	data := map[string]string{
+		"alpha":    "a",
+		"beta":     "b",
+		"gamma":    "g",
+		"alphabet": "ab",
+	}
+
+	for k, v := range data {
+		trie.Insert([]byte(k), v)
+	}
+
+	keys, err := trie.KeysWithPrefix([]byte(""))
+	require.NoError(t, err)
+	require.Len(t, keys, len(data))
+
+	got := make([]string, 0, len(keys))
+	for _, k := range keys {
+		got = append(got, string(k))
+	}
+	want := make([]string, 0, len(data))
+	for k := range data {
+		want = append(want, k)
+	}
+	sort.Strings(got)
+	sort.Strings(want)
+	assert.Equal(t, want, got)
+}
+
+func TestTrieTree_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	trie := NewTrieTree[byte, string]()
+
+	keys := []string{
+		"a", "ab", "abc", "abcd", "abcde",
+		"b", "bc", "bcd", "bcde",
+		"c", "cd", "cde",
+	}
+
+	// Concurrent inserts
+	var g errgroup.Group
+	for _, k := range keys {
+		k := k // capture
+		g.Go(func() error {
+			trie.Insert([]byte(k), k)
+			return nil
+		})
+	}
+	require.NoError(t, g.Wait(), "concurrent inserts should not fail")
+
+	// Verify all keys were inserted
+	for _, k := range keys {
+		v, ok := trie.Search([]byte(k))
+		require.True(t, ok, "key %q should exist after concurrent insert", k)
+		require.Equal(t, k, v, "key %q should have correct value", k)
+	}
+
+	// Concurrent reads
+	for _, k := range keys {
+		k := k
+		g.Go(func() error {
+			v, ok := trie.Search([]byte(k))
+			if !ok {
+				t.Errorf("search failed for %q: key not found", k)
+				return nil // don't fail errgroup, just log error
+			}
+			if v != k {
+				t.Errorf("search failed for %q: expected %q, got %q", k, k, v)
+			}
+			return nil
+		})
+	}
+	require.NoError(t, g.Wait(), "concurrent reads should not fail")
+
+	// Mixed deletes and reads
+	for i, k := range keys {
+		k := k
+		if i%2 == 0 {
+			g.Go(func() error {
+				_ = trie.Delete([]byte(k)) // ignore error; concurrent delete may happen twice
+				return nil
+			})
+		} else {
+			g.Go(func() error {
+				trie.Search([]byte(k))
+				return nil
+			})
+		}
+	}
+	require.NoError(t, g.Wait(), "mixed concurrent operations should not fail")
+
+	// Finally, ensure at least half the keys remain (odd indices)
+	remaining := 0
+	for i, k := range keys {
+		if i%2 == 1 {
+			if _, ok := trie.Search([]byte(k)); ok {
+				remaining++
+			}
+		}
+	}
+	assert.GreaterOrEqual(t, remaining, len(keys)/2, "at least half the keys should remain after concurrent deletes")
+}
+
+func TestTrieTree_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	trie := NewTrieTree[byte, string]()
+	var g errgroup.Group
+	const numGoroutines = 10
+	const keysPerGoroutine = 50
+
+	// Multiple inserters with different key patterns
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < keysPerGoroutine; j++ {
+				key := []byte(fmt.Sprintf("key-%d-%d", i, j))
+				value := fmt.Sprintf("value-%d-%d", i, j)
+				trie.Insert(key, value)
+			}
+			return nil
+		})
+	}
+
+	// Multiple readers
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < keysPerGoroutine; j++ {
+				key := []byte(fmt.Sprintf("key-%d-%d", i, j))
+				trie.Search(key) // ignore result, just ensure no panic
+			}
+			return nil
+		})
+	}
+
+	// Multiple deleters
+	for i := 0; i < numGoroutines/2; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < keysPerGoroutine/2; j++ {
+				key := []byte(fmt.Sprintf("key-%d-%d", i, j))
+				_ = trie.Delete(key) // ignore error, might not exist
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait(), "stress test should not fail")
+
+	// Verify trie is still functional
+	testKey := []byte("test-after-stress")
+	testValue := "test-value"
+	trie.Insert(testKey, testValue)
+
+	result, found := trie.Search(testKey)
+	assert.True(t, found, "trie should be functional after stress test")
+	assert.Equal(t, testValue, result, "trie should return correct value after stress test")
 }
 
 // Benchmark tests

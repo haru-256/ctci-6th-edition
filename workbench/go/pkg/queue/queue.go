@@ -1,6 +1,9 @@
 package queue
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	// ErrorQueueOverflow is returned when trying to enqueue to a full queue.
@@ -33,6 +36,7 @@ type Queue[T any] struct {
 	count int // current number of items in the queue
 	head  int
 	tail  int
+	mu    sync.RWMutex
 }
 
 // NewQueue creates and returns a new Queue with the specified capacity.
@@ -72,12 +76,18 @@ func NewQueue[T any](size int) *Queue[T] {
 // IsEmpty checks if the queue is empty.
 // Returns true if there are no elements in the queue.
 func (q *Queue[T]) IsEmpty() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count == 0
 }
 
 // IsFull checks if the queue is full.
 // Returns true if the queue has reached its maximum capacity.
 func (q *Queue[T]) IsFull() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count == q.size
 }
 
@@ -92,9 +102,16 @@ func (q *Queue[T]) IsFull() bool {
 //	    // handle queue overflow
 //	}
 func (q *Queue[T]) Enqueue(item T) error {
-	if q.IsFull() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	// Check if queue is full using direct field access.
+	// We cannot call q.IsFull() here because it would cause a deadlock:
+	// IsFull() tries to acquire an RLock while we already hold a Lock.
+	if q.count == q.size {
 		return ErrorQueueOverflow
 	}
+
 	q.items[q.tail] = item
 	q.tail = (q.tail + 1) % q.size
 	q.count++
@@ -114,10 +131,17 @@ func (q *Queue[T]) Enqueue(item T) error {
 //	    fmt.Println(item) // use the dequeued item
 //	}
 func (q *Queue[T]) Dequeue() (T, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
 	var zero T
-	if q.IsEmpty() {
+	// Check if queue is empty using direct field access.
+	// We cannot call q.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire an RLock while we already hold a Lock.
+	if q.count == 0 {
 		return zero, ErrorQueueUnderflow
 	}
+
 	item := q.items[q.head]
 	q.items[q.head] = zero // Clear the slot
 	q.head = (q.head + 1) % q.size
@@ -138,7 +162,14 @@ func (q *Queue[T]) Dequeue() (T, error) {
 //	    fmt.Println(item) // use the front item without removing it
 //	}
 func (q *Queue[T]) Peek() (T, error) {
-	if q.IsEmpty() {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	// Check if queue is empty using direct field access.
+	// We cannot call q.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire another RLock while we already hold one.
+	// Go's RWMutex doesn't support recursive locking.
+	if q.count == 0 {
 		var zero T
 		return zero, ErrorQueueUnderflow
 	}
@@ -148,11 +179,17 @@ func (q *Queue[T]) Peek() (T, error) {
 // Size returns the maximum capacity of the queue.
 // This is the size that was specified when the queue was created.
 func (q *Queue[T]) Size() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.size
 }
 
 // Count returns the current number of items in the queue.
 // This value ranges from 0 (empty) to Size() (full).
 func (q *Queue[T]) Count() int {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
 	return q.count
 }

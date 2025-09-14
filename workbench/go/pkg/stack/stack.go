@@ -1,6 +1,9 @@
 package stack
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	// ErrorStackOverflow is returned when trying to push to a full stack.
@@ -28,6 +31,7 @@ type Stack[T any] struct {
 	items []T // slice to store stack items
 	size  int // maximum number of items the stack can hold
 	count int // current number of items in the stack
+	mu    sync.RWMutex
 }
 
 // NewStack creates and returns a new Stack with the specified capacity.
@@ -64,12 +68,18 @@ func NewStack[T any](size int) *Stack[T] {
 // IsEmpty checks if the stack is empty.
 // Returns true if there are no elements in the stack.
 func (s *Stack[T]) IsEmpty() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count == 0
 }
 
 // IsFull checks if the stack is full.
 // Returns true if the stack has reached its maximum capacity.
 func (s *Stack[T]) IsFull() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count == s.size
 }
 
@@ -83,9 +93,16 @@ func (s *Stack[T]) IsFull() bool {
 //	    // handle stack overflow
 //	}
 func (s *Stack[T]) Push(item T) error {
-	if s.IsFull() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check if stack is full using direct field access.
+	// We cannot call s.IsFull() here because it would cause a deadlock:
+	// IsFull() tries to acquire an RLock while we already hold a Lock.
+	if s.count == s.size {
 		return ErrorStackOverflow
 	}
+
 	s.items[s.count] = item
 	s.count++
 	return nil
@@ -104,10 +121,17 @@ func (s *Stack[T]) Push(item T) error {
 //	    fmt.Println(item) // use the popped item
 //	}
 func (s *Stack[T]) Pop() (T, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var zero T
-	if s.IsEmpty() {
+	// Check if stack is empty using direct field access.
+	// We cannot call s.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire an RLock while we already hold a Lock.
+	if s.count == 0 {
 		return zero, ErrorStackUnderflow
 	}
+
 	item := s.items[s.count-1]
 	s.items[s.count-1] = zero // Clear the reference to prevent memory leaks
 	s.count--
@@ -127,21 +151,35 @@ func (s *Stack[T]) Pop() (T, error) {
 //	    fmt.Println(item) // use the top item without removing it
 //	}
 func (s *Stack[T]) Peek() (T, error) {
-	if s.IsEmpty() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Check if stack is empty using direct field access.
+	// We cannot call s.IsEmpty() here because it would cause a deadlock:
+	// IsEmpty() tries to acquire another RLock while we already hold one.
+	// Go's RWMutex doesn't support recursive locking.
+	if s.count == 0 {
 		var zero T
 		return zero, ErrorStackUnderflow
 	}
+
 	return s.items[s.count-1], nil
 }
 
 // Size returns the maximum capacity of the stack.
 // This is the size that was specified when the stack was created.
 func (s *Stack[T]) Size() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.size
 }
 
 // Count returns the current number of items in the stack.
 // This value ranges from 0 (empty) to Size() (full).
 func (s *Stack[T]) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.count
 }

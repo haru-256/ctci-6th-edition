@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestNewQueue(t *testing.T) {
@@ -199,6 +200,99 @@ func TestCircularBehavior(t *testing.T) {
 	assert.Equal(t, 4, dequeued)
 
 	assert.True(t, q.IsEmpty())
+}
+
+func FuzzQueue_EnqueueDequeue(f *testing.F) {
+	f.Add(1)
+	f.Add(42)
+	f.Add(-7)
+	f.Fuzz(func(t *testing.T, x int) {
+		q := NewQueue[int](10)
+		require.NoError(t, q.Enqueue(x))
+		got, err := q.Dequeue()
+		require.NoError(t, err)
+		assert.Equal(t, x, got)
+		assert.True(t, q.IsEmpty())
+	})
+}
+
+func TestQueue_ConcurrentEnqueueDequeue(t *testing.T) {
+	q := NewQueue[int](100)
+	var g errgroup.Group
+
+	g.Go(func() error {
+		for i := 0; i < 100; i++ {
+			if err := q.Enqueue(i); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	g.Go(func() error {
+		for i := 0; i < 100; i++ {
+			_, err := q.Dequeue()
+			if err != nil && err != ErrorQueueUnderflow {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, g.Wait(), "errgroup should not return error")
+	// Not strictly thread-safe, but should not panic or deadlock
+}
+
+func TestQueue_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	q := NewQueue[int](1000)
+	var g errgroup.Group
+	const numGoroutines = 10
+	const itemsPerGoroutine = 100
+
+	// Multiple producers
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				if err := q.Enqueue(i*itemsPerGoroutine + j); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	// Multiple consumers
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				_, err := q.Dequeue()
+				if err != nil && err != ErrorQueueUnderflow {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait(), "stress test should not fail")
+}
+
+func TestQueue_ZeroAndPointerValues(t *testing.T) {
+	q := NewQueue[*int](3)
+	var nilPtr *int
+	require.NoError(t, q.Enqueue(nilPtr))
+	v, err := q.Dequeue()
+	require.NoError(t, err)
+	assert.Nil(t, v)
+
+	q2 := NewQueue[int](2)
+	require.NoError(t, q2.Enqueue(0))
+	v2, err := q2.Dequeue()
+	require.NoError(t, err)
+	assert.Equal(t, 0, v2)
 }
 
 func TestGenericTypes(t *testing.T) {

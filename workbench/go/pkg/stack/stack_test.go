@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestNewStack(t *testing.T) {
@@ -261,6 +262,99 @@ func TestGenericTypes(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 42, popped)
 	})
+}
+
+func FuzzStack_PushPop(f *testing.F) {
+	f.Add(1)
+	f.Add(42)
+	f.Add(-7)
+	f.Fuzz(func(t *testing.T, x int) {
+		s := NewStack[int](10)
+		require.NoError(t, s.Push(x))
+		got, err := s.Pop()
+		require.NoError(t, err)
+		assert.Equal(t, x, got)
+		assert.True(t, s.IsEmpty())
+	})
+}
+
+func TestStack_ConcurrentPushPop(t *testing.T) {
+	s := NewStack[int](100)
+	var g errgroup.Group
+
+	g.Go(func() error {
+		for i := 0; i < 100; i++ {
+			if err := s.Push(i); err != nil && err != ErrorStackOverflow {
+				return err
+			}
+		}
+		return nil
+	})
+	g.Go(func() error {
+		for i := 0; i < 100; i++ {
+			_, err := s.Pop()
+			if err != nil && err != ErrorStackUnderflow {
+				return err
+			}
+		}
+		return nil
+	})
+	require.NoError(t, g.Wait(), "errgroup should not return error")
+	// Not strictly thread-safe, but should not panic or deadlock
+}
+
+func TestStack_ConcurrentStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test in short mode")
+	}
+
+	s := NewStack[int](1000)
+	var g errgroup.Group
+	const numGoroutines = 10
+	const itemsPerGoroutine = 100
+
+	// Multiple pushers
+	for i := 0; i < numGoroutines; i++ {
+		i := i
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				if err := s.Push(i*itemsPerGoroutine + j); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	// Multiple poppers
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < itemsPerGoroutine; j++ {
+				_, err := s.Pop()
+				if err != nil && err != ErrorStackUnderflow {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait(), "stress test should not fail")
+}
+
+func TestStack_ZeroAndPointerValues(t *testing.T) {
+	s := NewStack[*int](3)
+	var nilPtr *int
+	require.NoError(t, s.Push(nilPtr))
+	v, err := s.Pop()
+	require.NoError(t, err)
+	assert.Nil(t, v)
+
+	s2 := NewStack[int](2)
+	require.NoError(t, s2.Push(0))
+	v2, err := s2.Pop()
+	require.NoError(t, err)
+	assert.Equal(t, 0, v2)
 }
 
 func TestEdgeCases(t *testing.T) {

@@ -1,6 +1,9 @@
 package trietree
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 var (
 	ErrKeyNotFound = errors.New("key not found in trie tree")
@@ -8,6 +11,7 @@ var (
 
 type TrieTree[K comparable, V any] struct {
 	root *node[K, V]
+	mu   sync.RWMutex
 }
 
 type node[K comparable, V any] struct {
@@ -26,6 +30,9 @@ func NewTrieTree[K comparable, V any]() *TrieTree[K, V] {
 }
 
 func (t *TrieTree[K, V]) Insert(key []K, value V) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	current := t.root
 	for _, k := range key {
 		if _, exists := current.children[k]; !exists {
@@ -41,6 +48,9 @@ func (t *TrieTree[K, V]) Insert(key []K, value V) {
 }
 
 func (t *TrieTree[K, V]) Search(key []K) (V, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	current := t.root
 	for _, k := range key {
 		if _, exists := current.children[k]; !exists {
@@ -57,6 +67,9 @@ func (t *TrieTree[K, V]) Search(key []K) (V, bool) {
 }
 
 func (t *TrieTree[K, V]) StartsWith(key []K) bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	current := t.root
 	for _, k := range key {
 		if _, exists := current.children[k]; !exists {
@@ -68,6 +81,9 @@ func (t *TrieTree[K, V]) StartsWith(key []K) bool {
 }
 
 func (t *TrieTree[K, V]) Delete(key []K) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if len(key) == 0 {
 		return ErrKeyNotFound
 	}
@@ -120,6 +136,9 @@ func (t *TrieTree[K, V]) deleteRecursive(current *node[K, V], key []K, index int
 }
 
 func (t *TrieTree[K, V]) Size() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	return t.sizeRecursive(t.root)
 }
 
@@ -139,10 +158,16 @@ func (t *TrieTree[K, V]) sizeRecursive(current *node[K, V]) int {
 }
 
 func (t *TrieTree[K, V]) IsEmpty() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	return !t.root.isEnd && len(t.root.children) == 0
 }
 
 func (t *TrieTree[K, V]) Keys() [][]K {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	var results [][]K
 	var currentKey []K
 	t.collectKeys(t.root, currentKey, &results)
@@ -150,6 +175,9 @@ func (t *TrieTree[K, V]) Keys() [][]K {
 }
 
 func (t *TrieTree[K, V]) KeysWithPrefix(prefix []K) ([][]K, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	current := t.root
 	for _, k := range prefix {
 		if _, exists := current.children[k]; !exists {
