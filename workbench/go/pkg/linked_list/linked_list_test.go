@@ -1,10 +1,12 @@
 package linked_list
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestNewLinkedList(t *testing.T) {
@@ -17,8 +19,8 @@ func TestNewLinkedList(t *testing.T) {
 			test: func(t *testing.T) {
 				list := NewLinkedList[int]()
 				assert.NotNil(t, list)
-				assert.Nil(t, list.Head)
-				assert.Nil(t, list.Tail)
+				assert.Nil(t, list.Head())
+				assert.Nil(t, list.Tail())
 			},
 		},
 		{
@@ -26,8 +28,8 @@ func TestNewLinkedList(t *testing.T) {
 			test: func(t *testing.T) {
 				list := NewLinkedList[string]()
 				assert.NotNil(t, list)
-				assert.Nil(t, list.Head)
-				assert.Nil(t, list.Tail)
+				assert.Nil(t, list.Head())
+				assert.Nil(t, list.Tail())
 			},
 		},
 	}
@@ -121,8 +123,8 @@ func TestLinkedList_Prepend(t *testing.T) {
 			assert.Equal(t, tt.expectedValues, values)
 
 			if len(tt.expectedValues) > 0 {
-				assert.Equal(t, tt.expectedValues[0], list.Head.Value)
-				assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail.Value)
+				assert.Equal(t, tt.expectedValues[0], list.Head().Value)
+				assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail().Value)
 			}
 		})
 	}
@@ -265,7 +267,7 @@ func TestLinkedList_Insert(t *testing.T) {
 
 				// Verify tail is correctly updated
 				if len(tt.expectedValues) > 0 {
-					assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail.Value)
+					assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail().Value)
 				}
 			}
 		})
@@ -349,11 +351,11 @@ func TestLinkedList_Delete(t *testing.T) {
 
 			// Verify head and tail are correctly updated
 			if len(tt.expectedValues) == 0 {
-				assert.Nil(t, list.Head)
-				assert.Nil(t, list.Tail)
+				assert.Nil(t, list.Head())
+				assert.Nil(t, list.Tail())
 			} else {
-				assert.Equal(t, tt.expectedValues[0], list.Head.Value)
-				assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail.Value)
+				assert.Equal(t, tt.expectedValues[0], list.Head().Value)
+				assert.Equal(t, tt.expectedValues[len(tt.expectedValues)-1], list.Tail().Value)
 			}
 		})
 	}
@@ -364,7 +366,7 @@ func TestLinkedList_Delete(t *testing.T) {
 // collectValues returns all values in the list from head to tail
 func collectValues[T comparable](list *LinkedList[T]) []T {
 	values := []T{}
-	current := list.Head
+	current := list.Head()
 	for current != nil {
 		values = append(values, current.Value)
 		current = current.Next
@@ -374,9 +376,255 @@ func collectValues[T comparable](list *LinkedList[T]) []T {
 
 // getNodeAtIndex returns the node at the specified index (0-based)
 func getNodeAtIndex[T comparable](list *LinkedList[T], index int) *Node[T] {
-	current := list.Head
+	current := list.Head()
 	for i := 0; i < index && current != nil; i++ {
 		current = current.Next
 	}
 	return current
+}
+
+// TestLinkedList_ConcurrentSearch tests that multiple goroutines can safely
+// read from the linked list simultaneously without data races.
+func TestLinkedList_ConcurrentSearch(t *testing.T) {
+	list := NewLinkedList[int]()
+
+	// Prepare initial data
+	for i := 1; i <= 10; i++ {
+		list.Prepend(i)
+	}
+
+	const numReaders = 10
+	const readsPerReader = 100
+
+	var wg sync.WaitGroup
+
+	// Start multiple readers
+	for i := 0; i < numReaders; i++ {
+		wg.Add(1)
+		go func(readerID int) {
+			defer wg.Done()
+
+			for j := 0; j < readsPerReader; j++ {
+				// Search for values that should exist
+				node := list.Search(readerID%10 + 1)
+				if readerID%10+1 <= 10 {
+					assert.NotNil(t, node, "Reader %d should find value %d", readerID, readerID%10+1)
+				}
+
+				// Search for values that don't exist
+				node = list.Search(100 + readerID)
+				assert.Nil(t, node, "Reader %d should not find value %d", readerID, 100+readerID)
+
+				// Access head and tail
+				head := list.Head()
+				tail := list.Tail()
+				assert.NotNil(t, head, "Head should not be nil")
+				assert.NotNil(t, tail, "Tail should not be nil")
+			}
+		}(i)
+	}
+
+	wg.Wait()
+}
+
+// TestLinkedList_ConcurrentWrites tests that multiple goroutines can safely
+// write to the linked list without causing data races or corruption.
+func TestLinkedList_ConcurrentWrites(t *testing.T) {
+	list := NewLinkedList[int]()
+
+	const numWriters = 10
+	const writesPerWriter = 50
+
+	var g errgroup.Group
+
+	// Start multiple writers performing prepends
+	for i := 0; i < numWriters; i++ {
+		writerID := i
+		g.Go(func() error {
+			for j := 0; j < writesPerWriter; j++ {
+				list.Prepend(writerID*writesPerWriter + j)
+			}
+			return nil
+		})
+	}
+
+	// Start multiple writers performing deletes
+	for i := 0; i < numWriters/2; i++ {
+		writerID := i
+		g.Go(func() error {
+			for j := 0; j < writesPerWriter/2; j++ {
+				// Try to delete values (some may not exist, which is OK)
+				_ = list.Delete(writerID*writesPerWriter/2 + j)
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, g.Wait())
+
+	// Verify list integrity - should be able to traverse without panics
+	values := collectValues(list)
+	assert.GreaterOrEqual(t, len(values), 0, "List should be accessible after concurrent operations")
+
+	// Verify head and tail consistency
+	head := list.Head()
+	tail := list.Tail()
+	if len(values) == 0 {
+		assert.Nil(t, head, "Head should be nil for empty list")
+		assert.Nil(t, tail, "Tail should be nil for empty list")
+	} else {
+		assert.NotNil(t, head, "Head should not be nil for non-empty list")
+		assert.NotNil(t, tail, "Tail should not be nil for non-empty list")
+		assert.Equal(t, values[0], head.Value, "Head value should match first collected value")
+		assert.Equal(t, values[len(values)-1], tail.Value, "Tail value should match last collected value")
+	}
+}
+
+// TestLinkedList_MixedConcurrentOperations tests a realistic scenario with
+// mixed concurrent reads and writes.
+func TestLinkedList_MixedConcurrentOperations(t *testing.T) {
+	list := NewLinkedList[int]()
+
+	// Initialize with some data
+	for i := 1; i <= 20; i++ {
+		list.Prepend(i)
+	}
+
+	const numOperations = 100
+	var g errgroup.Group
+
+	// Concurrent readers
+	g.Go(func() error {
+		for i := 0; i < numOperations; i++ {
+			// Search for existing values
+			node := list.Search(i%20 + 1)
+			if node != nil {
+				assert.GreaterOrEqual(t, node.Value, 1)
+				assert.LessOrEqual(t, node.Value, 20)
+			}
+
+			// Access head/tail
+			head := list.Head()
+			tail := list.Tail()
+			if head != nil && tail != nil {
+				assert.NotNil(t, head)
+				assert.NotNil(t, tail)
+			}
+		}
+		return nil
+	})
+
+	// Concurrent prependers
+	g.Go(func() error {
+		for i := 0; i < numOperations/2; i++ {
+			list.Prepend(100 + i)
+		}
+		return nil
+	})
+
+	// Concurrent inserters (find nodes and insert after them)
+	g.Go(func() error {
+		for i := 0; i < numOperations/4; i++ {
+			// Find a node to insert after
+			target := i%20 + 1
+			node := list.Search(target)
+			if node != nil {
+				err := list.Insert(200+i, node)
+				assert.NoError(t, err)
+			}
+		}
+		return nil
+	})
+
+	// Concurrent deleters
+	g.Go(func() error {
+		for i := 0; i < numOperations/4; i++ {
+			// Try to delete various values
+			_ = list.Delete(i%20 + 1) // Some may not exist anymore
+			if err := list.Delete(i%20 + 1); err != nil && err != ErrorNodeNotFound {
+				return err
+			}
+		}
+		return nil
+	})
+
+	require.NoError(t, g.Wait())
+
+	// Final integrity check
+	values := collectValues(list)
+	assert.GreaterOrEqual(t, len(values), 0, "List should be accessible after mixed operations")
+
+	// Verify list structure integrity
+	current := list.Head()
+	count := 0
+	for current != nil {
+		count++
+		if current.Next != nil {
+			assert.Equal(t, current, current.Next.Prev, "Forward/backward links should be consistent")
+		}
+		current = current.Next
+
+		// Prevent infinite loops in case of corruption
+		assert.Less(t, count, 1000, "List traversal should not exceed reasonable bounds")
+	}
+	assert.Equal(t, len(values), count, "Collected values count should match traversal count")
+}
+
+// TestLinkedList_ConcurrentInsertDelete tests the scenario where insertions
+// and deletions happen concurrently, which exercises the most complex locking behavior.
+func TestLinkedList_ConcurrentInsertDelete(t *testing.T) {
+	list := NewLinkedList[int]()
+
+	// Initialize with sequential values
+	for i := 10; i >= 1; i-- {
+		list.Prepend(i)
+	}
+
+	const numOperations = 50
+	var g errgroup.Group
+
+	// Concurrent insertions after specific nodes
+	g.Go(func() error {
+		for i := 0; i < numOperations; i++ {
+			target := (i % 10) + 1
+			node := list.Search(target)
+			if node != nil {
+				err := list.Insert(1000+i, node)
+				assert.NoError(t, err)
+			}
+		}
+		return nil
+	})
+
+	// Concurrent deletions
+	g.Go(func() error {
+		for i := 0; i < numOperations; i++ {
+			target := (i % 10) + 1
+			_ = list.Delete(target) // May fail if already deleted
+		}
+		return nil
+	})
+
+	// Concurrent prepends to keep adding data
+	g.Go(func() error {
+		for i := 0; i < numOperations; i++ {
+			list.Prepend(2000 + i)
+		}
+		return nil
+	})
+
+	require.NoError(t, g.Wait())
+
+	// Verify final state
+	values := collectValues(list)
+	assert.GreaterOrEqual(t, len(values), 0, "List should be accessible")
+
+	// Check that all prepended values from the third goroutine are present
+	foundPrependedValues := 0
+	for _, value := range values {
+		if value >= 2000 && value < 2000+numOperations {
+			foundPrependedValues++
+		}
+	}
+	assert.Equal(t, numOperations, foundPrependedValues, "All prepended values should be present")
 }

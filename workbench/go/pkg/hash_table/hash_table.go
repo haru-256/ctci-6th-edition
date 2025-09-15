@@ -138,7 +138,7 @@ func (table *HashChainTable[T]) Delete(value T) error {
 	}
 
 	table.size--
-	if table.Table[index].Head == nil { // if list is empty, remove bucket for garbage collection
+	if table.Table[index].Head() == nil { // if list is empty, remove bucket for garbage collection
 		table.Table[index] = nil
 	}
 	return nil

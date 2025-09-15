@@ -1,10 +1,12 @@
 package heap
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // intCmp compares two integers for max heap (larger values have higher priority)
@@ -528,4 +530,204 @@ func BenchmarkHeapSort(b *testing.B) {
 		b.StartTimer()
 		HeapSort(itemPtrs)
 	}
+}
+
+// TestHeap_ConcurrentInsertPop tests thread safety of Insert and Pop operations
+// by running multiple goroutines concurrently using errgroup
+func TestHeap_ConcurrentInsertPop(t *testing.T) {
+	heap := NewMaxHeap[int]()
+
+	const numGoroutines = 10
+	const numOpsPerGoroutine = 100
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Launch goroutines that insert values
+	for i := 0; i < numGoroutines; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				value := goroutineID*numOpsPerGoroutine + j
+				heap.Insert(value)
+			}
+			return nil
+		})
+	}
+
+	// Launch goroutines that pop values
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				// Try to pop, but handle empty heap gracefully
+				_, _ = heap.Pop() // Ignore errors as heap might be empty
+			}
+			return nil
+		})
+	}
+
+	// Wait for all operations to complete
+	err := g.Wait()
+	require.NoError(t, err, "All goroutines should complete without error")
+
+	// Verify no deadlocks occurred by checking heap is still functional
+	heap.Insert(999)
+	top, err := heap.Peek()
+	require.NoError(t, err, "Heap should still be functional after concurrent operations")
+	require.NotNil(t, top, "Should be able to peek after concurrent operations")
+	assert.Equal(t, 999, *top, "Inserted value should be at the top of max heap")
+}
+
+// TestHeap_ConcurrentReads tests that multiple read operations can run concurrently
+// without blocking each other (RWMutex behavior) using errgroup
+func TestHeap_ConcurrentReads(t *testing.T) {
+	heap := NewMaxHeap[int]()
+
+	// Populate heap with test data
+	testData := []int{50, 30, 70, 20, 40, 60, 80}
+	for _, val := range testData {
+		heap.Insert(val)
+	}
+
+	const numReaders = 20
+	const numReadsPerReader = 50
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Launch concurrent Peek operations
+	for i := 0; i < numReaders; i++ {
+		g.Go(func() error {
+			for j := 0; j < numReadsPerReader; j++ {
+				top, err := heap.Peek()
+				require.NoError(t, err, "Peek should not fail")
+				require.NotNil(t, top, "Peek should not return nil")
+				assert.Equal(t, 80, *top, "Max element should be 80")
+			}
+			return nil
+		})
+	}
+
+	// Launch concurrent Size operations
+	for i := 0; i < numReaders; i++ {
+		g.Go(func() error {
+			for j := 0; j < numReadsPerReader; j++ {
+				size := heap.Size()
+				assert.Equal(t, len(testData), size, "Size should be consistent")
+				assert.Greater(t, size, 0, "Size should be positive")
+			}
+			return nil
+		})
+	}
+
+	// Launch concurrent GetItems operations
+	for i := 0; i < numReaders; i++ {
+		g.Go(func() error {
+			for j := 0; j < numReadsPerReader; j++ {
+				items := heap.GetItems()
+				require.NotNil(t, items, "GetItems should not return nil")
+				assert.Equal(t, len(testData), len(items), "Items length should match")
+			}
+			return nil
+		})
+	}
+
+	// Wait for all readers to complete
+	err := g.Wait()
+	require.NoError(t, err, "All read operations should complete without error")
+
+	// Verify heap is still functional and correct
+	top, err := heap.Peek()
+	require.NoError(t, err, "Final peek should work")
+	assert.Equal(t, 80, *top, "Max element should still be 80")
+	assert.Equal(t, len(testData), heap.Size(), "Size should be unchanged")
+}
+
+// TestHeap_ConcurrentUpDownHeap tests thread safety of UpHeap and DownHeap public methods
+// These methods should be safe to call externally (e.g., from priority queue package)
+func TestHeap_ConcurrentUpDownHeap(t *testing.T) {
+	heap := NewMaxHeap[int]()
+
+	// Populate heap with some initial data to have valid indices
+	initialData := []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+	for _, val := range initialData {
+		heap.Insert(val)
+	}
+
+	const numGoroutines = 10
+	const numOpsPerGoroutine = 20
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Concurrent UpHeap operations
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				// Use valid indices (heap size may change during concurrent operations)
+				size := heap.Size()
+				if size > 0 {
+					index := j % size
+					heap.UpHeap(index)
+				}
+			}
+			return nil
+		})
+	}
+
+	// Concurrent DownHeap operations
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				// Use valid indices (heap size may change during concurrent operations)
+				size := heap.Size()
+				if size > 0 {
+					index := j % size
+					heap.DownHeap(index)
+				}
+			}
+			return nil
+		})
+	}
+
+	// Mixed operations (Insert/Pop) to simulate real-world usage
+	for i := 0; i < numGoroutines; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				if j%2 == 0 {
+					// Insert operation
+					value := goroutineID*1000 + j
+					heap.Insert(value)
+				} else {
+					// Pop operation (ignore errors for empty heap)
+					if _, err := heap.Peek(); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+	}
+
+	// Wait for all operations to complete
+	err := g.Wait()
+	require.NoError(t, err, "All concurrent operations should complete without error")
+
+	// Verify heap is still functional and maintains heap property
+	// Insert a known maximum value
+	heap.Insert(9999)
+	top, err := heap.Peek()
+	require.NoError(t, err, "Heap should still be functional after concurrent UpHeap/DownHeap")
+	require.NotNil(t, top, "Peek should return a value")
+	assert.Equal(t, 9999, *top, "Heap property should be maintained after concurrent operations")
+
+	// Verify we can still perform basic operations
+	assert.Greater(t, heap.Size(), 0, "Heap should not be empty")
+
+	// Pop the maximum and verify heap still works
+	poppedMax, err := heap.Pop()
+	require.NoError(t, err, "Should be able to pop after concurrent operations")
+	require.NotNil(t, poppedMax, "Popped value should not be nil")
+	assert.Equal(t, 9999, *poppedMax, "Should pop the maximum value")
 }

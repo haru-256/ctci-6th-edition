@@ -1,11 +1,20 @@
 // Package heap provides a generic heap implementation.
 // It supports any comparable type and allows storing elements.
 // The heap can be configured as either a max heap or min heap depending on the comparison function.
+//
+// Thread Safety:
+// This implementation is thread-safe and can be used concurrently by multiple goroutines.
+// All public methods use appropriate mutex locking:
+//   - Read operations (Peek, Size, GetItems) use RWMutex.RLock() for concurrent reads
+//   - Write operations (Insert, Pop, UpHeap, DownHeap) use RWMutex.Lock() for exclusive access
+//   - Internal methods (upHeap, downHeap) do not acquire locks and should only be called
+//     when the caller already holds the appropriate lock to avoid deadlocks
 package heap
 
 import (
 	"cmp"
 	"errors"
+	"sync"
 )
 
 // ErrorIsEmpty is returned when attempting to perform operations on an empty heap.
@@ -16,9 +25,17 @@ var ErrorIsEmpty = errors.New("heap is empty")
 // For a max heap, the comparison function should return positive when a > b.
 // For a min heap, the comparison function should return positive when a < b.
 // T can be any type.
+//
+// Thread Safety:
+// The Heap is thread-safe for concurrent use by multiple goroutines.
+// It uses sync.RWMutex to coordinate access:
+// - Multiple readers can access read-only operations (Peek, Size, GetItems) concurrently
+// - Write operations (Insert, Pop, UpHeap, DownHeap) acquire exclusive locks
+// - The mutex prevents race conditions and ensures heap consistency across goroutines
 type Heap[T any] struct {
 	items []*T
 	cmpFn func(a, b *T) int
+	mu    sync.RWMutex
 }
 
 // NewHeap creates and returns a new empty heap.
@@ -37,8 +54,11 @@ func NewHeap[T any](cmpFn func(a, b *T) int) *Heap[T] {
 // The element is inserted at the end and then moved up to maintain the heap property.
 // Time complexity: O(log n) where n is the number of elements in the heap.
 func (heap *Heap[T]) Insert(item T) {
+	heap.mu.Lock()
+	defer heap.mu.Unlock()
+
 	heap.items = append(heap.items, &item)
-	heap.UpHeap(heap.Size() - 1)
+	heap.upHeap(len(heap.items) - 1)
 }
 
 // swap exchanges the elements at indices i and j in the heap.
@@ -47,14 +67,18 @@ func (h *Heap[T]) swap(i, j int) {
 }
 
 func (h *Heap[T]) GetItems() []*T {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	itemsCopy := make([]*T, len(h.items))
 	copy(itemsCopy, h.items)
 	return itemsCopy
 }
 
 // upHeap moves the element at the given index up the heap until the heap property is satisfied.
-// This is used after inserting a new element to maintain the heap property.
-func (h *Heap[T]) UpHeap(index int) {
+// This is an internal method that doesn't acquire locks - it should only be called
+// when the caller already holds the appropriate lock.
+func (h *Heap[T]) upHeap(index int) {
 	for {
 		parentIndex := Parent(index)
 		// Stop if we reach the root, or if parent satisfies heap property relative to current element
@@ -68,10 +92,30 @@ func (h *Heap[T]) UpHeap(index int) {
 	}
 }
 
+// UpHeap moves the element at the given index up the heap until the heap property is satisfied.
+// This is the public method that acquires the necessary lock and calls the internal upHeap method.
+// This is used after inserting a new element to maintain the heap property.
+func (h *Heap[T]) UpHeap(index int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.upHeap(index)
+}
+
 // downHeap moves the element at the given index down the heap until the heap property is satisfied.
+// This is an internal method that doesn't acquire locks - it should only be called
+// when the caller already holds the appropriate lock.
+// This method uses the current heap size.
+func (h *Heap[T]) downHeap(index int) {
+	h.downHeapWithSize(index, len(h.items))
+}
+
+// DownHeap moves the element at the given index down the heap until the heap property is satisfied.
+// This is the public method that acquires the necessary lock and calls the internal downHeap method.
 // This method uses the current heap size.
 func (h *Heap[T]) DownHeap(index int) {
-	h.downHeapWithSize(index, h.Size())
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.downHeap(index)
 }
 
 // downHeapWithSize moves the element at the given index down the heap until the heap property is satisfied.
@@ -107,6 +151,9 @@ func (h *Heap[T]) downHeapWithSize(index int, heapSize int) {
 // Returns ErrorIsEmpty if the heap is empty.
 // Time complexity: O(log n) where n is the number of elements in the heap.
 func (h *Heap[T]) Pop() (*T, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if len(h.items) == 0 {
 		return nil, ErrorIsEmpty
 	}
@@ -123,7 +170,7 @@ func (h *Heap[T]) Pop() (*T, error) {
 
 	// Restore heap property by moving the new root down (down-heap)
 	if len(h.items) > 0 {
-		h.DownHeap(0)
+		h.downHeap(0)
 	}
 
 	return top, nil
@@ -136,6 +183,9 @@ func (h *Heap[T]) Pop() (*T, error) {
 // Returns ErrorIsEmpty if the heap is empty.
 // Time complexity: O(1).
 func (h *Heap[T]) Peek() (*T, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	if len(h.items) == 0 {
 		return nil, ErrorIsEmpty
 	}
@@ -145,6 +195,9 @@ func (h *Heap[T]) Peek() (*T, error) {
 // Size returns the number of elements currently in the heap.
 // Time complexity: O(1).
 func (h *Heap[T]) Size() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
 	return len(h.items)
 }
 
