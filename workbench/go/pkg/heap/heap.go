@@ -98,6 +98,9 @@ func (h *Heap[T]) upHeap(index int) {
 func (h *Heap[T]) UpHeap(index int) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if index < 0 || index >= len(h.items) {
+		return // Or return an error
+	}
 	h.upHeap(index)
 }
 
