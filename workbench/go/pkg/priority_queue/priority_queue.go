@@ -69,12 +69,12 @@ func NewPriorityQueue[T comparable](cmpFn func(a, b *Task[T]) int) *PriorityQueu
 //
 //	pq.Insert("urgent task", 10)
 //	pq.Insert("normal task", 5)
-func (pq *PriorityQueue[T]) Insert(item T, priority int) {
+func (pq *PriorityQueue[T]) Insert(item T, priority int) error {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
 
 	task := NewTask(priority, item)
-	_ = pq.heap.Insert(task)
+	return pq.heap.Insert(task)
 }
 
 // Pop removes and returns the highest priority item from the queue.

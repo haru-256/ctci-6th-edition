@@ -27,7 +27,7 @@ type testUpdate struct {
 func setupPriorityQueue(items []testItem) *PriorityQueue[string] {
 	pq := NewPriorityQueue(PriorityCmp[string])
 	for _, item := range items {
-		pq.Insert(item.value, item.priority)
+		_ = pq.Insert(item.value, item.priority)
 	}
 	return pq
 }
@@ -379,7 +379,7 @@ func TestPriorityQueue_WithDifferentTypes(t *testing.T) {
 				}
 
 				for _, item := range items {
-					intPQ.Insert(item.value, item.priority)
+					_ = intPQ.Insert(item.value, item.priority)
 				}
 
 				expected := []struct {
@@ -419,7 +419,7 @@ func TestPriorityQueue_WithDifferentTypes(t *testing.T) {
 				}
 
 				for _, j := range jobs {
-					pq.Insert(j.job, j.priority)
+					_ = pq.Insert(j.job, j.priority)
 				}
 
 				expected := []struct {
@@ -512,7 +512,7 @@ func TestPriorityQueue_LargeDataset(t *testing.T) {
 
 			// Insert items
 			for i := 0; i < len(tt.priorities); i++ {
-				pq.Insert(tt.values[i], tt.priorities[i])
+				_ = pq.Insert(tt.values[i], tt.priorities[i])
 			}
 
 			require.Equal(t, len(tt.priorities), pq.heap.Size())
@@ -579,7 +579,7 @@ func BenchmarkPriorityQueue_Insert(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pq.Insert(i, i%100)
+		_ = pq.Insert(i, i%100)
 	}
 }
 
@@ -588,7 +588,7 @@ func BenchmarkPriorityQueue_Pop(b *testing.B) {
 
 	// Pre-populate
 	for i := 0; i < b.N; i++ {
-		pq.Insert(i, i%100)
+		_ = pq.Insert(i, i%100)
 	}
 
 	b.ResetTimer()
@@ -603,7 +603,7 @@ func BenchmarkPriorityQueue_Update(b *testing.B) {
 
 	// Pre-populate with 1000 items
 	for i := 0; i < 1000; i++ {
-		pq.Insert(i, i)
+		_ = pq.Insert(i, i)
 	}
 
 	b.ResetTimer()
@@ -686,7 +686,7 @@ func TestPriorityQueue_ConcurrentInsertPop(t *testing.T) {
 			for j := 0; j < numOpsPerGoroutine; j++ {
 				task := fmt.Sprintf("task-%d-%d", goroutineID, j)
 				priority := goroutineID*numOpsPerGoroutine + j
-				pq.Insert(task, priority)
+				_ = pq.Insert(task, priority)
 			}
 			return nil
 		})
@@ -708,7 +708,7 @@ func TestPriorityQueue_ConcurrentInsertPop(t *testing.T) {
 	require.NoError(t, err, "All goroutines should complete without error")
 
 	// Verify no deadlocks occurred by checking priority queue is still functional
-	pq.Insert("test-task", 999)
+	require.NoError(t, pq.Insert("test-task", 999))
 	task, err := pq.Pop()
 	require.NoError(t, err, "Priority queue should still be functional after concurrent operations")
 	require.NotNil(t, task, "Should be able to pop after concurrent operations")
@@ -724,7 +724,7 @@ func TestPriorityQueue_ConcurrentUpdate(t *testing.T) {
 	// Pre-populate the queue with test items
 	testItems := []string{"task-1", "task-2", "task-3", "task-4", "task-5"}
 	for i, item := range testItems {
-		pq.Insert(item, i+1) // Initial priorities: 1, 2, 3, 4, 5
+		require.NoError(t, pq.Insert(item, i+1)) // Initial priorities: 1, 2, 3, 4, 5
 	}
 
 	const numGoroutines = 10
@@ -757,7 +757,7 @@ func TestPriorityQueue_ConcurrentUpdate(t *testing.T) {
 			for j := 0; j < 10; j++ {
 				// Insert new items
 				newItem := fmt.Sprintf("new-task-%d-%d", goroutineID, j)
-				pq.Insert(newItem, j+50)
+				_ = pq.Insert(newItem, j+50)
 
 				// Try to pop (might fail if queue is empty)
 				_, _ = pq.Pop()
@@ -771,7 +771,7 @@ func TestPriorityQueue_ConcurrentUpdate(t *testing.T) {
 	require.NoError(t, err, "All concurrent operations should complete without error")
 
 	// Verify the priority queue is still functional
-	pq.Insert("final-test", 1000)
+	require.NoError(t, pq.Insert("final-test", 1000))
 	task, err := pq.Pop()
 	require.NoError(t, err, "Priority queue should still be functional after concurrent updates")
 	require.NotNil(t, task, "Should be able to pop after concurrent operations")
@@ -817,7 +817,7 @@ func runProducerWorker(pq *PriorityQueue[string], workerID, numOperations int) e
 	for j := 0; j < numOperations; j++ {
 		task := fmt.Sprintf("producer-%d-task-%d", workerID, j)
 		priority := workerID*1000 + j
-		pq.Insert(task, priority)
+		_ = pq.Insert(task, priority)
 
 		// Occasionally update an existing task's priority
 		if j%10 == 0 && j > 0 {
@@ -848,7 +848,7 @@ func runConsumerWorker(pq *PriorityQueue[string], numOperations int) error {
 				// Occasionally re-insert a task with different priority
 				newTask := fmt.Sprintf("reprocessed-%s", task.Value)
 				newPriority := task.Priority - 100 // Lower priority for reprocessing
-				pq.Insert(newTask, newPriority)
+				_ = pq.Insert(newTask, newPriority)
 			}
 			processedCount++
 		}
@@ -862,7 +862,7 @@ func verifyPriorityQueueFunctionality(t *testing.T, pq *PriorityQueue[string]) {
 	// Insert some test items with known priorities
 	testPriorities := []int{100, 500, 50, 750, 25}
 	for i, priority := range testPriorities {
-		pq.Insert(fmt.Sprintf("final-test-%d", i), priority)
+		require.NoError(t, pq.Insert(fmt.Sprintf("final-test-%d", i), priority))
 	}
 
 	// Pop items and verify they come out in priority order (highest first)

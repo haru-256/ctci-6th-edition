@@ -292,7 +292,9 @@ func HeapSort[T cmp.Ordered](arr []*T) ([]*T, error) {
 	for i := heapSize - 1; i > 0; i-- {
 		heap.swap(0, i)
 		heapSize--
-		_ = heap.downHeapWithSize(0, heapSize)
+		if downErr := heap.downHeapWithSize(0, heapSize); downErr != nil {
+			return nil, downErr
+		}
 	}
 	return heap.items, nil
 }
