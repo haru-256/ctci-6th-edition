@@ -540,7 +540,6 @@ func TestLinkedList_MixedConcurrentOperations(t *testing.T) {
 	g.Go(func() error {
 		for i := 0; i < numOperations/4; i++ {
 			// Try to delete various values
-			_ = list.Delete(i%20 + 1) // Some may not exist anymore
 			if err := list.Delete(i%20 + 1); err != nil && err != ErrorNodeNotFound {
 				return err
 			}

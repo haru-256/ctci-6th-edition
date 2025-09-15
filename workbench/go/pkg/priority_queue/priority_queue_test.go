@@ -471,7 +471,7 @@ func TestPriorityQueue_TimeOrdering(t *testing.T) {
 
 			// Insert tasks manually to control timing
 			for _, task := range tt.setupTasks {
-				pq.heap.Insert(task)
+				require.NoError(t, pq.heap.Insert(task))
 			}
 
 			// Verify order
@@ -636,9 +636,9 @@ func TestPriorityQueue_DebugHeapBehavior(t *testing.T) {
 				task2 := Task[string]{Priority: 5, Value: "task2", Time: time.Now()}
 				task3 := Task[string]{Priority: 15, Value: "task3", Time: time.Now()}
 
-				heap.Insert(task1)
-				heap.Insert(task2)
-				heap.Insert(task3)
+				require.NoError(t, heap.Insert(task1))
+				require.NoError(t, heap.Insert(task2))
+				require.NoError(t, heap.Insert(task3))
 
 				t.Logf("Initial heap:")
 				for i, task := range heap.GetItems() {
@@ -652,7 +652,7 @@ func TestPriorityQueue_DebugHeapBehavior(t *testing.T) {
 					t.Logf("  [%d] %s priority %d", i, task.Value, task.Priority)
 				}
 
-				heap.UpHeap(1)
+				require.NoError(t, heap.UpHeap(1))
 				t.Logf("After UpHeap(1):")
 				for i, task := range heap.GetItems() {
 					t.Logf("  [%d] %s priority %d", i, task.Value, task.Priority)

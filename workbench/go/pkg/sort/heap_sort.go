@@ -57,8 +57,11 @@ func fromPointerSlice[T any](ptrs []*T) []T {
 //	words := []string{"banana", "apple", "cherry"}
 //	sortedWords := sort.HeapSort(words)
 //	// sortedWords: ["apple", "banana", "cherry"]
-func HeapSort[T cmp.Ordered](arr []T) []T {
+func HeapSort[T cmp.Ordered](arr []T) ([]T, error) {
 	ptrs := toPointerSlice(arr)
-	ptrs = heap.HeapSort(ptrs)
-	return fromPointerSlice(ptrs)
+	ptrs, err := heap.HeapSort(ptrs)
+	if err != nil {
+		return nil, err
+	}
+	return fromPointerSlice(ptrs), nil
 }

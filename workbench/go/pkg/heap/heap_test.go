@@ -67,10 +67,10 @@ func TestMinHeap_Operations(t *testing.T) {
 	heap := NewMinHeap[int]()
 
 	// Insert elements
-	heap.Insert(30)
-	heap.Insert(10)
-	heap.Insert(20)
-	heap.Insert(5)
+	require.NoError(t, heap.Insert(30))
+	require.NoError(t, heap.Insert(10))
+	require.NoError(t, heap.Insert(20))
+	require.NoError(t, heap.Insert(5))
 
 	// Root should be minimum (5)
 	min, err := heap.Peek()
@@ -91,7 +91,7 @@ func TestHeap_Insert(t *testing.T) {
 	heap := NewHeap[int](intCmp)
 
 	// Test inserting single element
-	heap.Insert(10)
+	require.NoError(t, heap.Insert(10))
 	assert.Equal(t, 1, heap.Size(), "Expected size 1")
 
 	top, err := heap.Peek()
@@ -99,9 +99,9 @@ func TestHeap_Insert(t *testing.T) {
 	assert.Equal(t, 10, *top, "Expected 10")
 
 	// Test inserting multiple elements
-	heap.Insert(20)
-	heap.Insert(5)
-	heap.Insert(15)
+	require.NoError(t, heap.Insert(20))
+	require.NoError(t, heap.Insert(5))
+	require.NoError(t, heap.Insert(15))
 
 	assert.Equal(t, 4, heap.Size(), "Expected size 4")
 
@@ -118,7 +118,7 @@ func TestMaxHeap_HeapProperty(t *testing.T) {
 	values := []int{10, 30, 20, 40, 50, 15, 25}
 
 	for _, v := range values {
-		heap.Insert(v)
+		require.NoError(t, heap.Insert(v))
 	}
 
 	// Get items using GetItems() to verify heap property
@@ -151,10 +151,10 @@ func TestMaxHeap_Pop(t *testing.T) {
 	assert.Equal(t, ErrorIsEmpty, err, "Expected ErrorIsEmpty")
 
 	// Insert elements and test pop
-	heap.Insert(10)
-	heap.Insert(20)
-	heap.Insert(5)
-	heap.Insert(15)
+	require.NoError(t, heap.Insert(10))
+	require.NoError(t, heap.Insert(20))
+	require.NoError(t, heap.Insert(5))
+	require.NoError(t, heap.Insert(15))
 
 	// Pop should return elements in descending order
 	expectedValues := []int{20, 15, 10, 5}
@@ -181,12 +181,12 @@ func TestMaxHeap_Max(t *testing.T) {
 	assert.Equal(t, ErrorIsEmpty, err, "Expected ErrorIsEmpty")
 
 	// Insert elements and test max
-	heap.Insert(10)
+	require.NoError(t, heap.Insert(10))
 	max, err := heap.Peek()
 	require.NoError(t, err, "Unexpected error")
 	assert.Equal(t, 10, *max, "Expected max 10")
 
-	heap.Insert(20)
+	require.NoError(t, heap.Insert(20))
 	max, err = heap.Peek()
 	require.NoError(t, err, "Unexpected error")
 	assert.Equal(t, 20, *max, "Expected max 20")
@@ -254,7 +254,8 @@ func TestBuildMaxHeap(t *testing.T) {
 	}
 
 	// Build max heap from array
-	heap := BuildMaxHeap(itemPtrs)
+	heap, err := BuildMaxHeap(itemPtrs)
+	require.NoError(t, err)
 
 	// Verify max heap property
 	for i := 0; i < heap.Size()/2; i++ {
@@ -290,7 +291,8 @@ func TestBuildMinHeap(t *testing.T) {
 	}
 
 	// Build min heap from array
-	heap := BuildMinHeap(itemPtrs)
+	heap, err := BuildMinHeap(itemPtrs)
+	require.NoError(t, err)
 
 	// Verify min heap property
 	for i := 0; i < heap.Size()/2; i++ {
@@ -326,7 +328,8 @@ func TestHeapSort(t *testing.T) {
 	}
 
 	// Perform heap sort
-	sorted := HeapSort(itemPtrs)
+	sorted, err := HeapSort(itemPtrs)
+	require.NoError(t, err)
 
 	// After heap sort, the array should be sorted in ascending order
 	expected := []int{10, 20, 30, 40, 50}
@@ -347,7 +350,8 @@ func TestHeapSort_LargerDataset(t *testing.T) {
 	}
 
 	// Perform heap sort
-	sorted := HeapSort(itemPtrs)
+	sorted, err := HeapSort(itemPtrs)
+	require.NoError(t, err)
 
 	// After heap sort, the array should be sorted in ascending order
 	expected := []int{1, 5, 11, 12, 22, 25, 30, 34, 45, 55, 60, 64, 77, 78, 90}
@@ -360,7 +364,8 @@ func TestHeapSort_EmptyHeap(t *testing.T) {
 	// Test heap sort on empty array
 	var itemPtrs []*int
 
-	sorted := HeapSort(itemPtrs)
+	sorted, err := HeapSort(itemPtrs)
+	require.NoError(t, err)
 
 	assert.Empty(t, sorted, "Expected empty array after HeapSort")
 }
@@ -370,7 +375,8 @@ func TestHeapSort_SingleElement(t *testing.T) {
 	value := 42
 	itemPtrs := []*int{&value}
 
-	sorted := HeapSort(itemPtrs)
+	sorted, err := HeapSort(itemPtrs)
+	require.NoError(t, err)
 
 	assert.Len(t, sorted, 1, "Expected size 1 for single element array after HeapSort")
 	assert.Equal(t, 42, *sorted[0], "Expected 42")
@@ -379,9 +385,9 @@ func TestHeapSort_SingleElement(t *testing.T) {
 func TestMaxHeap_WithDifferentTypes(t *testing.T) {
 	// Test with string values
 	stringHeap := NewHeap[string](stringCmp)
-	stringHeap.Insert("zebra")
-	stringHeap.Insert("apple")
-	stringHeap.Insert("banana")
+	require.NoError(t, stringHeap.Insert("zebra"))
+	require.NoError(t, stringHeap.Insert("apple"))
+	require.NoError(t, stringHeap.Insert("banana"))
 
 	// Root should be "zebra" (lexicographically largest)
 	max, err := stringHeap.Peek()
@@ -390,9 +396,9 @@ func TestMaxHeap_WithDifferentTypes(t *testing.T) {
 
 	// Test with float64 values
 	floatHeap := NewHeap[float64](float64Cmp)
-	floatHeap.Insert(3.14)
-	floatHeap.Insert(2.71)
-	floatHeap.Insert(1.41)
+	require.NoError(t, floatHeap.Insert(3.14))
+	require.NoError(t, floatHeap.Insert(2.71))
+	require.NoError(t, floatHeap.Insert(1.41))
 
 	// Root should be 3.14 (largest)
 	max2, err := floatHeap.Peek()
@@ -407,7 +413,7 @@ func TestMaxHeap_IntegrationTest(t *testing.T) {
 	elements := []int{50, 30, 70, 20, 40, 60, 80}
 
 	for _, elem := range elements {
-		heap.Insert(elem)
+		require.NoError(t, heap.Insert(elem))
 	}
 
 	// Verify size
@@ -447,9 +453,9 @@ func TestMaxHeap_CustomType(t *testing.T) {
 	heap := NewHeap[Person](personCmpByAge)
 
 	// Insert people
-	heap.Insert(Person{Name: "Alice", Age: 30})
-	heap.Insert(Person{Name: "Bob", Age: 25})
-	heap.Insert(Person{Name: "Charlie", Age: 35})
+	require.NoError(t, heap.Insert(Person{Name: "Alice", Age: 30}))
+	require.NoError(t, heap.Insert(Person{Name: "Bob", Age: 25}))
+	require.NoError(t, heap.Insert(Person{Name: "Charlie", Age: 35}))
 
 	// Max should be Charlie (oldest)
 	max, err := heap.Peek()
@@ -482,9 +488,9 @@ func TestMaxHeap_WithNodeType(t *testing.T) {
 	heap := NewHeap[Node[int, string]](nodeCmp)
 
 	// Insert nodes
-	heap.Insert(Node[int, string]{Key: 10, Value: "ten"})
-	heap.Insert(Node[int, string]{Key: 20, Value: "twenty"})
-	heap.Insert(Node[int, string]{Key: 5, Value: "five"})
+	require.NoError(t, heap.Insert(Node[int, string]{Key: 10, Value: "ten"}))
+	require.NoError(t, heap.Insert(Node[int, string]{Key: 20, Value: "twenty"}))
+	require.NoError(t, heap.Insert(Node[int, string]{Key: 5, Value: "five"}))
 
 	// Max should be node with key 20
 	max, err := heap.Peek()
@@ -499,7 +505,7 @@ func BenchmarkMaxHeap_Insert(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		heap.Insert(i)
+		_ = heap.Insert(i)
 	}
 }
 
@@ -507,7 +513,7 @@ func BenchmarkMaxHeap_Pop(b *testing.B) {
 	// Pre-populate heap
 	heap := NewMaxHeap[int]()
 	for i := 0; i < b.N; i++ {
-		heap.Insert(i)
+		_ = heap.Insert(i)
 	}
 
 	b.ResetTimer()
@@ -528,7 +534,7 @@ func BenchmarkHeapSort(b *testing.B) {
 		}
 
 		b.StartTimer()
-		HeapSort(itemPtrs)
+		_, _ = HeapSort(itemPtrs)
 	}
 }
 
@@ -549,7 +555,7 @@ func TestHeap_ConcurrentInsertPop(t *testing.T) {
 		g.Go(func() error {
 			for j := 0; j < numOpsPerGoroutine; j++ {
 				value := goroutineID*numOpsPerGoroutine + j
-				heap.Insert(value)
+				_ = heap.Insert(value)
 			}
 			return nil
 		})
@@ -571,7 +577,7 @@ func TestHeap_ConcurrentInsertPop(t *testing.T) {
 	require.NoError(t, err, "All goroutines should complete without error")
 
 	// Verify no deadlocks occurred by checking heap is still functional
-	heap.Insert(999)
+	require.NoError(t, heap.Insert(999))
 	top, err := heap.Peek()
 	require.NoError(t, err, "Heap should still be functional after concurrent operations")
 	require.NotNil(t, top, "Should be able to peek after concurrent operations")
@@ -586,7 +592,7 @@ func TestHeap_ConcurrentReads(t *testing.T) {
 	// Populate heap with test data
 	testData := []int{50, 30, 70, 20, 40, 60, 80}
 	for _, val := range testData {
-		heap.Insert(val)
+		require.NoError(t, heap.Insert(val))
 	}
 
 	const numReaders = 20
@@ -651,7 +657,7 @@ func TestHeap_ConcurrentUpDownHeap(t *testing.T) {
 	// Populate heap with some initial data to have valid indices
 	initialData := []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
 	for _, val := range initialData {
-		heap.Insert(val)
+		require.NoError(t, heap.Insert(val))
 	}
 
 	const numGoroutines = 10
@@ -660,63 +666,101 @@ func TestHeap_ConcurrentUpDownHeap(t *testing.T) {
 	ctx := context.Background()
 	g, _ := errgroup.WithContext(ctx)
 
-	// Concurrent UpHeap operations
-	for i := 0; i < numGoroutines; i++ {
-		g.Go(func() error {
-			for j := 0; j < numOpsPerGoroutine; j++ {
-				// Use valid indices (heap size may change during concurrent operations)
-				size := heap.Size()
-				if size > 0 {
-					index := j % size
-					heap.UpHeap(index)
-				}
-			}
-			return nil
-		})
-	}
-
-	// Concurrent DownHeap operations
-	for i := 0; i < numGoroutines; i++ {
-		g.Go(func() error {
-			for j := 0; j < numOpsPerGoroutine; j++ {
-				// Use valid indices (heap size may change during concurrent operations)
-				size := heap.Size()
-				if size > 0 {
-					index := j % size
-					heap.DownHeap(index)
-				}
-			}
-			return nil
-		})
-	}
-
-	// Mixed operations (Insert/Pop) to simulate real-world usage
-	for i := 0; i < numGoroutines; i++ {
-		goroutineID := i
-		g.Go(func() error {
-			for j := 0; j < numOpsPerGoroutine; j++ {
-				if j%2 == 0 {
-					// Insert operation
-					value := goroutineID*1000 + j
-					heap.Insert(value)
-				} else {
-					// Pop operation (ignore errors for empty heap)
-					if _, err := heap.Peek(); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
-		})
-	}
+	// Start concurrent operations
+	startConcurrentUpHeap(g, heap, numGoroutines, numOpsPerGoroutine)
+	startConcurrentDownHeap(g, heap, numGoroutines, numOpsPerGoroutine)
+	startMixedOperations(g, heap, numGoroutines, numOpsPerGoroutine)
 
 	// Wait for all operations to complete
 	err := g.Wait()
 	require.NoError(t, err, "All concurrent operations should complete without error")
 
+	// Verify heap functionality after concurrent operations
+	verifyHeapIntegrityAfterConcurrency(t, heap)
+}
+
+// startConcurrentUpHeap launches goroutines that perform UpHeap operations
+func startConcurrentUpHeap(g *errgroup.Group, heap *Heap[int], numGoroutines, numOpsPerGoroutine int) {
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			return performUpHeapOperations(heap, numOpsPerGoroutine)
+		})
+	}
+}
+
+// performUpHeapOperations executes UpHeap operations for a single goroutine
+func performUpHeapOperations(heap *Heap[int], numOps int) error {
+	for j := 0; j < numOps; j++ {
+		// Use valid indices (heap size may change during concurrent operations)
+		size := heap.Size()
+		if size > 0 {
+			index := j % size
+			if err := heap.UpHeap(index); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// startConcurrentDownHeap launches goroutines that perform DownHeap operations
+func startConcurrentDownHeap(g *errgroup.Group, heap *Heap[int], numGoroutines, numOpsPerGoroutine int) {
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			return performDownHeapOperations(heap, numOpsPerGoroutine)
+		})
+	}
+}
+
+// performDownHeapOperations executes DownHeap operations for a single goroutine
+func performDownHeapOperations(heap *Heap[int], numOps int) error {
+	for j := 0; j < numOps; j++ {
+		// Use valid indices (heap size may change during concurrent operations)
+		size := heap.Size()
+		if size > 0 {
+			index := j % size
+			if err := heap.DownHeap(index); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// startMixedOperations launches goroutines that perform mixed Insert/Peek operations
+func startMixedOperations(g *errgroup.Group, heap *Heap[int], numGoroutines, numOpsPerGoroutine int) {
+	for i := 0; i < numGoroutines; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			return performMixedOperations(heap, goroutineID, numOpsPerGoroutine)
+		})
+	}
+}
+
+// performMixedOperations executes mixed Insert/Peek operations for a single goroutine
+func performMixedOperations(heap *Heap[int], goroutineID, numOps int) error {
+	for j := 0; j < numOps; j++ {
+		if j%2 == 0 {
+			// Insert operation
+			value := goroutineID*1000 + j
+			if err := heap.Insert(value); err != nil {
+				return err
+			}
+		} else {
+			// Peek operation (ignore errors for empty heap)
+			if _, err := heap.Peek(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// verifyHeapIntegrityAfterConcurrency checks that the heap maintains its properties after concurrent operations
+func verifyHeapIntegrityAfterConcurrency(t *testing.T, heap *Heap[int]) {
 	// Verify heap is still functional and maintains heap property
 	// Insert a known maximum value
-	heap.Insert(9999)
+	require.NoError(t, heap.Insert(9999))
 	top, err := heap.Peek()
 	require.NoError(t, err, "Heap should still be functional after concurrent UpHeap/DownHeap")
 	require.NotNil(t, top, "Peek should return a value")

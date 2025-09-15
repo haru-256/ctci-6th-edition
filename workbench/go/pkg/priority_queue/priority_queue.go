@@ -74,7 +74,7 @@ func (pq *PriorityQueue[T]) Insert(item T, priority int) {
 	defer pq.mu.Unlock()
 
 	task := NewTask(priority, item)
-	pq.heap.Insert(task)
+	_ = pq.heap.Insert(task)
 }
 
 // Pop removes and returns the highest priority item from the queue.
@@ -153,10 +153,14 @@ func (pq *PriorityQueue[T]) Update(item T, priority int) error {
 
 	if toLessThan {
 		// Priority decreased (was more, now lower), move down towards leaves
-		pq.heap.DownHeap(targetIdx)
+		if err := pq.heap.DownHeap(targetIdx); err != nil {
+			return err
+		}
 	} else if toLargerThan {
 		// Priority increased (was less, now higher), move up towards root
-		pq.heap.UpHeap(targetIdx)
+		if err := pq.heap.UpHeap(targetIdx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
