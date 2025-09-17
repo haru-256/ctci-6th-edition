@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test that both sorting algorithms produce the same results
@@ -30,7 +31,8 @@ func TestSortingAlgorithmsConsistency(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test both algorithms produce the same result
-			heapResult := HeapSort(tc.data)
+			heapResult, err := HeapSort(tc.data)
+			require.NoError(t, err)
 			quickResult := QuickSort(tc.data)
 
 			assert.Equal(t, heapResult, quickResult,
@@ -55,7 +57,8 @@ func TestSortingAlgorithmsConsistency(t *testing.T) {
 func TestSortingAlgorithmsWithStrings(t *testing.T) {
 	words := []string{"zebra", "apple", "banana", "cherry", "date", "elderberry"}
 
-	heapResult := HeapSort(words)
+	heapResult, err := HeapSort(words)
+	require.NoError(t, err)
 	quickResult := QuickSort(words)
 
 	expected := []string{"apple", "banana", "cherry", "date", "elderberry", "zebra"}
@@ -69,7 +72,8 @@ func TestSortingAlgorithmsWithStrings(t *testing.T) {
 func TestSortingAlgorithmsWithFloats(t *testing.T) {
 	floats := []float64{3.14159, 2.71828, 1.41421, 0.57721, 1.61803}
 
-	heapResult := HeapSort(floats)
+	heapResult, err := HeapSort(floats)
+	require.NoError(t, err)
 	quickResult := QuickSort(floats)
 
 	expected := []float64{0.57721, 1.41421, 1.61803, 2.71828, 3.14159}
@@ -85,7 +89,8 @@ func TestOriginalSliceNotModified(t *testing.T) {
 	originalCopy := make([]int, len(original))
 	copy(originalCopy, original)
 
-	heapResult := HeapSort(original)
+	heapResult, err := HeapSort(original)
+	require.NoError(t, err)
 	assert.Equal(t, originalCopy, original, "HeapSort should not modify original slice")
 
 	quickResult := QuickSort(original)
@@ -113,7 +118,8 @@ func TestPerformanceComparison(t *testing.T) {
 	heapData := make([]int, len(data))
 	copy(heapData, data)
 	start := time.Now()
-	heapResult := HeapSort(heapData)
+	heapResult, err := HeapSort(heapData)
+	require.NoError(t, err)
 	heapTime := time.Since(start)
 
 	// Test QuickSort
@@ -161,7 +167,8 @@ func TestHeapSortWorstCase(t *testing.T) {
 		data[i] = i
 	}
 
-	result := HeapSort(data)
+	result, err := HeapSort(data)
+	require.NoError(t, err)
 
 	assert.True(t, sort.IntsAreSorted(result), "HeapSort should handle any input efficiently")
 	assert.Equal(t, data, result, "Result should be the same as input (already sorted)")
@@ -174,7 +181,8 @@ func TestSortingWithLargeNumbers(t *testing.T) {
 		-1000000000, -999999999, 0, 1, -1,
 	}
 
-	heapResult := HeapSort(largeNumbers)
+	heapResult, err := HeapSort(largeNumbers)
+	require.NoError(t, err)
 	quickResult := QuickSort(largeNumbers)
 
 	expected := []int{
@@ -192,7 +200,8 @@ func TestCustomOrderedType(t *testing.T) {
 
 	temps := []Temperature{98.6, 32.0, 212.0, 100.0, 0.0, -40.0}
 
-	heapResult := HeapSort(temps)
+	heapResult, err := HeapSort(temps)
+	require.NoError(t, err)
 	quickResult := QuickSort(temps)
 
 	expected := []Temperature{-40.0, 0.0, 32.0, 98.6, 100.0, 212.0}
@@ -215,7 +224,8 @@ func TestStressTestMultipleDatasets(t *testing.T) {
 			data[j] = rand.Intn(1000) - 500 // -500 to 499
 		}
 
-		heapResult := HeapSort(data)
+		heapResult, err := HeapSort(data)
+		require.NoError(t, err)
 		quickResult := QuickSort(data)
 
 		// Both should produce the same sorted result

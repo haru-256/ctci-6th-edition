@@ -12,7 +12,17 @@ their insertion time, with earlier items having higher precedence.
 - Time-based tie-breaking for items with equal priority
 - Efficient O(log n) insertion and removal operations
 - O(n) priority update operations with O(log n) rebalancing
-- Thread-safe for read operations
+- Thread-safe for concurrent use by multiple goroutines
+
+# Thread Safety
+
+This implementation is thread-safe and can be used concurrently by multiple goroutines.
+All public methods use appropriate mutex locking:
+- All operations (Insert, Pop, Update) use RWMutex.Lock() for exclusive access
+- The priority queue safely coordinates with the underlying heap's thread-safe operations
+- Update operations acquire exclusive locks during both search and heap rebalancing phases
+
+No external synchronization is required when using this priority queue from multiple goroutines.
 
 # Performance Characteristics
 
@@ -61,6 +71,32 @@ their insertion time, with earlier items having higher precedence.
 		fmt.Printf("Job not found: %v\n", err)
 	}
 
+# Concurrent Usage
+
+The priority queue is thread-safe and can be used safely from multiple goroutines
+without external synchronization:
+
+	// Multiple goroutines can safely operate on the same priority queue
+	go func() {
+		for i := 0; i < 100; i++ {
+			pq.Insert(fmt.Sprintf("task-%d", i), i)
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 50; i++ {
+			if task, err := pq.Pop(); err == nil {
+				fmt.Printf("Processing: %s\n", task.Value)
+			}
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 10; i++ {
+			pq.Update(fmt.Sprintf("task-%d", i), i+100)
+		}
+	}()
+
 # Custom Comparison Functions
 
 For different ordering behaviors, you can provide custom comparison functions:
@@ -82,19 +118,6 @@ For different ordering behaviors, you can provide custom comparison functions:
 	}
 
 	minPQ := priorityqueue.NewPriorityQueue[string](minHeapCmp)
-
-# Thread Safety
-
-This implementation is thread-safe for concurrent read operations but requires external
-synchronization for concurrent modifications. Use sync.Mutex or sync.RWMutex to protect
-concurrent access when multiple goroutines are modifying the queue.
-
-	var mu sync.Mutex
-
-	// Safe concurrent insertion
-	mu.Lock()
-	pq.Insert("task", 5)
-	mu.Unlock()
 
 # Error Handling
 

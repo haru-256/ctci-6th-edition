@@ -2,6 +2,7 @@ package priorityqueue
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/haru-256/ctci-6th-edition/pkg/heap"
@@ -17,6 +18,13 @@ var ErrNotFound = fmt.Errorf("item not found")
 // Items are ordered by priority (higher numbers have higher precedence) and by insertion time
 // for items with equal priority.
 //
+// Thread Safety:
+// The PriorityQueue is thread-safe for concurrent use by multiple goroutines.
+// It uses sync.RWMutex to coordinate access:
+// - All operations (Insert, Pop, Update) acquire exclusive locks to ensure consistency
+// - The mutex prevents race conditions during priority updates and heap modifications
+// - Safe coordination with the underlying thread-safe heap implementation
+//
 // Time complexities:
 //   - Insert: O(log n)
 //   - Pop: O(log n)
@@ -25,6 +33,7 @@ var ErrNotFound = fmt.Errorf("item not found")
 // Space complexity: O(n) where n is the number of items in the queue.
 type PriorityQueue[T comparable] struct {
 	heap *heap.Heap[Task[T]]
+	mu   sync.RWMutex
 }
 
 // NewPriorityQueue creates a new priority queue with the given comparison function.
@@ -51,21 +60,30 @@ func NewPriorityQueue[T comparable](cmpFn func(a, b *Task[T]) int) *PriorityQueu
 // Higher priority numbers indicate higher precedence. Items with the same priority
 // are ordered by insertion time (earlier items first).
 //
+// Thread Safety: This method is thread-safe. It acquires an exclusive lock during
+// the entire operation to ensure atomic insertion and heap rebalancing.
+//
 // Time complexity: O(log n)
 //
 // Example:
 //
 //	pq.Insert("urgent task", 10)
 //	pq.Insert("normal task", 5)
-func (pq *PriorityQueue[T]) Insert(item T, priority int) {
+func (pq *PriorityQueue[T]) Insert(item T, priority int) error {
+	pq.mu.Lock()
+	defer pq.mu.Unlock()
+
 	task := NewTask(priority, item)
-	pq.heap.Insert(task)
+	return pq.heap.Insert(task)
 }
 
 // Pop removes and returns the highest priority item from the queue.
 //
 // Returns the task with the highest priority, or an error if the queue is empty.
 // For items with equal priority, the item that was inserted first is returned.
+//
+// Thread Safety: This method is thread-safe. It acquires an exclusive lock during
+// the entire operation to ensure atomic removal and heap rebalancing.
 //
 // Time complexity: O(log n)
 //
@@ -78,6 +96,9 @@ func (pq *PriorityQueue[T]) Insert(item T, priority int) {
 //	}
 //	fmt.Printf("Processing: %s (priority: %d)\n", task.Value, task.Priority)
 func (pq *PriorityQueue[T]) Pop() (*Task[T], error) {
+	pq.mu.Lock()
+	defer pq.mu.Unlock()
+
 	task, err := pq.heap.Pop()
 	if err != nil {
 		return nil, err
@@ -92,6 +113,10 @@ func (pq *PriorityQueue[T]) Pop() (*Task[T], error) {
 // If the item is not found, returns ErrNotFound.
 // If the new priority is the same as the current priority, no operation is performed.
 //
+// Thread Safety: This method is thread-safe. It acquires an exclusive lock during
+// the entire operation to ensure atomic search, priority update, and heap rebalancing.
+// The underlying heap's UpHeap/DownHeap methods are called safely within the lock.
+//
 // Time complexity: O(n) for searching + O(log n) for rebalancing
 //
 // Example:
@@ -101,6 +126,9 @@ func (pq *PriorityQueue[T]) Pop() (*Task[T], error) {
 //		fmt.Println("Task not found in queue")
 //	}
 func (pq *PriorityQueue[T]) Update(item T, priority int) error {
+	pq.mu.Lock()
+	defer pq.mu.Unlock()
+
 	// FIXME: The Update method has a time complexity of O(n) due to the linear scan to find the item.
 	var targetTask *Task[T]
 	var targetIdx int
@@ -125,10 +153,14 @@ func (pq *PriorityQueue[T]) Update(item T, priority int) error {
 
 	if toLessThan {
 		// Priority decreased (was more, now lower), move down towards leaves
-		pq.heap.DownHeap(targetIdx)
+		if err := pq.heap.DownHeap(targetIdx); err != nil {
+			return err
+		}
 	} else if toLargerThan {
 		// Priority increased (was less, now higher), move up towards root
-		pq.heap.UpHeap(targetIdx)
+		if err := pq.heap.UpHeap(targetIdx); err != nil {
+			return err
+		}
 	}
 	return nil
 }

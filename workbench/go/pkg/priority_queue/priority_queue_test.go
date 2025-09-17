@@ -1,11 +1,15 @@
 package priorityqueue
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/haru-256/ctci-6th-edition/pkg/heap"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // Helper types for test data
@@ -23,7 +27,7 @@ type testUpdate struct {
 func setupPriorityQueue(items []testItem) *PriorityQueue[string] {
 	pq := NewPriorityQueue(PriorityCmp[string])
 	for _, item := range items {
-		pq.Insert(item.value, item.priority)
+		_ = pq.Insert(item.value, item.priority)
 	}
 	return pq
 }
@@ -375,7 +379,7 @@ func TestPriorityQueue_WithDifferentTypes(t *testing.T) {
 				}
 
 				for _, item := range items {
-					intPQ.Insert(item.value, item.priority)
+					_ = intPQ.Insert(item.value, item.priority)
 				}
 
 				expected := []struct {
@@ -415,7 +419,7 @@ func TestPriorityQueue_WithDifferentTypes(t *testing.T) {
 				}
 
 				for _, j := range jobs {
-					pq.Insert(j.job, j.priority)
+					_ = pq.Insert(j.job, j.priority)
 				}
 
 				expected := []struct {
@@ -467,7 +471,7 @@ func TestPriorityQueue_TimeOrdering(t *testing.T) {
 
 			// Insert tasks manually to control timing
 			for _, task := range tt.setupTasks {
-				pq.heap.Insert(task)
+				require.NoError(t, pq.heap.Insert(task))
 			}
 
 			// Verify order
@@ -508,7 +512,7 @@ func TestPriorityQueue_LargeDataset(t *testing.T) {
 
 			// Insert items
 			for i := 0; i < len(tt.priorities); i++ {
-				pq.Insert(tt.values[i], tt.priorities[i])
+				_ = pq.Insert(tt.values[i], tt.priorities[i])
 			}
 
 			require.Equal(t, len(tt.priorities), pq.heap.Size())
@@ -575,7 +579,7 @@ func BenchmarkPriorityQueue_Insert(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pq.Insert(i, i%100)
+		_ = pq.Insert(i, i%100)
 	}
 }
 
@@ -584,7 +588,7 @@ func BenchmarkPriorityQueue_Pop(b *testing.B) {
 
 	// Pre-populate
 	for i := 0; i < b.N; i++ {
-		pq.Insert(i, i%100)
+		_ = pq.Insert(i, i%100)
 	}
 
 	b.ResetTimer()
@@ -599,7 +603,7 @@ func BenchmarkPriorityQueue_Update(b *testing.B) {
 
 	// Pre-populate with 1000 items
 	for i := 0; i < 1000; i++ {
-		pq.Insert(i, i)
+		_ = pq.Insert(i, i)
 	}
 
 	b.ResetTimer()
@@ -632,9 +636,9 @@ func TestPriorityQueue_DebugHeapBehavior(t *testing.T) {
 				task2 := Task[string]{Priority: 5, Value: "task2", Time: time.Now()}
 				task3 := Task[string]{Priority: 15, Value: "task3", Time: time.Now()}
 
-				heap.Insert(task1)
-				heap.Insert(task2)
-				heap.Insert(task3)
+				require.NoError(t, heap.Insert(task1))
+				require.NoError(t, heap.Insert(task2))
+				require.NoError(t, heap.Insert(task3))
 
 				t.Logf("Initial heap:")
 				for i, task := range heap.GetItems() {
@@ -648,7 +652,7 @@ func TestPriorityQueue_DebugHeapBehavior(t *testing.T) {
 					t.Logf("  [%d] %s priority %d", i, task.Value, task.Priority)
 				}
 
-				heap.UpHeap(1)
+				require.NoError(t, heap.UpHeap(1))
 				t.Logf("After UpHeap(1):")
 				for i, task := range heap.GetItems() {
 					t.Logf("  [%d] %s priority %d", i, task.Value, task.Priority)
@@ -661,5 +665,234 @@ func TestPriorityQueue_DebugHeapBehavior(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.test(t)
 		})
+	}
+}
+
+// TestPriorityQueue_ConcurrentInsertPop tests thread safety of Insert and Pop operations
+// by running multiple goroutines concurrently using errgroup
+func TestPriorityQueue_ConcurrentInsertPop(t *testing.T) {
+	pq := NewPriorityQueue(PriorityCmp[string])
+
+	const numGoroutines = 10
+	const numOpsPerGoroutine = 50
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Launch goroutines that insert values
+	for i := 0; i < numGoroutines; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				task := fmt.Sprintf("task-%d-%d", goroutineID, j)
+				priority := goroutineID*numOpsPerGoroutine + j
+				_ = pq.Insert(task, priority)
+			}
+			return nil
+		})
+	}
+
+	// Launch goroutines that pop values
+	for i := 0; i < numGoroutines; i++ {
+		g.Go(func() error {
+			for j := 0; j < numOpsPerGoroutine; j++ {
+				// Try to pop, but handle empty queue gracefully
+				_, _ = pq.Pop() // Ignore errors as queue might be empty
+			}
+			return nil
+		})
+	}
+
+	// Wait for all operations to complete
+	err := g.Wait()
+	require.NoError(t, err, "All goroutines should complete without error")
+
+	// Verify no deadlocks occurred by checking priority queue is still functional
+	require.NoError(t, pq.Insert("test-task", 999))
+	task, err := pq.Pop()
+	require.NoError(t, err, "Priority queue should still be functional after concurrent operations")
+	require.NotNil(t, task, "Should be able to pop after concurrent operations")
+	assert.Equal(t, "test-task", task.Value, "Inserted value should be popped")
+	assert.Equal(t, 999, task.Priority, "Priority should be preserved")
+}
+
+// TestPriorityQueue_ConcurrentUpdate tests thread safety of Update operations
+// by running multiple goroutines concurrently performing priority updates
+func TestPriorityQueue_ConcurrentUpdate(t *testing.T) {
+	pq := NewPriorityQueue(PriorityCmp[string])
+
+	// Pre-populate the queue with test items
+	testItems := []string{"task-1", "task-2", "task-3", "task-4", "task-5"}
+	for i, item := range testItems {
+		require.NoError(t, pq.Insert(item, i+1)) // Initial priorities: 1, 2, 3, 4, 5
+	}
+
+	const numGoroutines = 10
+	const numUpdatesPerGoroutine = 20
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Launch goroutines that perform concurrent updates
+	for i := 0; i < numGoroutines; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			for j := 0; j < numUpdatesPerGoroutine; j++ {
+				// Randomly update existing items
+				itemIndex := (goroutineID + j) % len(testItems)
+				item := testItems[itemIndex]
+				newPriority := goroutineID*100 + j
+
+				// Update may fail if item doesn't exist (due to concurrent pops), that's OK
+				_ = pq.Update(item, newPriority)
+			}
+			return nil
+		})
+	}
+
+	// Also run some concurrent inserts and pops to create realistic load
+	for i := 0; i < 3; i++ {
+		goroutineID := i
+		g.Go(func() error {
+			for j := 0; j < 10; j++ {
+				// Insert new items
+				newItem := fmt.Sprintf("new-task-%d-%d", goroutineID, j)
+				_ = pq.Insert(newItem, j+50)
+
+				// Try to pop (might fail if queue is empty)
+				_, _ = pq.Pop()
+			}
+			return nil
+		})
+	}
+
+	// Wait for all operations to complete
+	err := g.Wait()
+	require.NoError(t, err, "All concurrent operations should complete without error")
+
+	// Verify the priority queue is still functional
+	require.NoError(t, pq.Insert("final-test", 1000))
+	task, err := pq.Pop()
+	require.NoError(t, err, "Priority queue should still be functional after concurrent updates")
+	require.NotNil(t, task, "Should be able to pop after concurrent operations")
+	assert.Equal(t, "final-test", task.Value, "Highest priority item should be popped first")
+	assert.Equal(t, 1000, task.Priority, "Priority should be preserved")
+}
+
+// TestPriorityQueue_MixedConcurrentOperations tests realistic concurrent usage patterns
+// combining Insert, Pop, and Update operations from multiple goroutines
+func TestPriorityQueue_MixedConcurrentOperations(t *testing.T) {
+	pq := NewPriorityQueue(PriorityCmp[string])
+
+	const numWorkers = 8
+	const numOperations = 100
+
+	ctx := context.Background()
+	g, _ := errgroup.WithContext(ctx)
+
+	// Start producer and consumer goroutines
+	startProducers(g, pq, numWorkers/2, numOperations)
+	startConsumers(g, pq, numWorkers/2, numOperations)
+
+	// Wait for all operations to complete
+	err := g.Wait()
+	require.NoError(t, err, "All mixed concurrent operations should complete without error")
+
+	// Verify final state functionality
+	verifyPriorityQueueFunctionality(t, pq)
+}
+
+// startProducers launches producer goroutines that insert and update tasks
+func startProducers(g *errgroup.Group, pq *PriorityQueue[string], numProducers, numOperations int) {
+	for i := 0; i < numProducers; i++ {
+		workerID := i
+		g.Go(func() error {
+			return runProducerWorker(pq, workerID, numOperations)
+		})
+	}
+}
+
+// runProducerWorker executes producer operations for a single worker
+func runProducerWorker(pq *PriorityQueue[string], workerID, numOperations int) error {
+	for j := 0; j < numOperations; j++ {
+		task := fmt.Sprintf("producer-%d-task-%d", workerID, j)
+		priority := workerID*1000 + j
+		_ = pq.Insert(task, priority)
+
+		// Occasionally update an existing task's priority
+		if j%10 == 0 && j > 0 {
+			oldTask := fmt.Sprintf("producer-%d-task-%d", workerID, j-5)
+			newPriority := priority + 5000 // Higher priority
+			_ = pq.Update(oldTask, newPriority)
+		}
+	}
+	return nil
+}
+
+// startConsumers launches consumer goroutines that pop and process tasks
+func startConsumers(g *errgroup.Group, pq *PriorityQueue[string], numConsumers, numOperations int) {
+	for i := 0; i < numConsumers; i++ {
+		g.Go(func() error {
+			return runConsumerWorker(pq, numOperations)
+		})
+	}
+}
+
+// runConsumerWorker executes consumer operations for a single worker
+func runConsumerWorker(pq *PriorityQueue[string], numOperations int) error {
+	processedCount := 0
+	for processedCount < numOperations {
+		if task, err := pq.Pop(); err == nil {
+			// Simulate processing time variation
+			if processedCount%20 == 0 {
+				// Occasionally re-insert a task with different priority
+				newTask := fmt.Sprintf("reprocessed-%s", task.Value)
+				newPriority := task.Priority - 100 // Lower priority for reprocessing
+				_ = pq.Insert(newTask, newPriority)
+			}
+			processedCount++
+		}
+		// If queue is empty, continue trying (producers might still be working)
+	}
+	return nil
+}
+
+// verifyPriorityQueueFunctionality tests that the priority queue maintains correct behavior
+func verifyPriorityQueueFunctionality(t *testing.T, pq *PriorityQueue[string]) {
+	// Insert some test items with known priorities
+	testPriorities := []int{100, 500, 50, 750, 25}
+	for i, priority := range testPriorities {
+		require.NoError(t, pq.Insert(fmt.Sprintf("final-test-%d", i), priority))
+	}
+
+	// Pop items and verify they come out in priority order (highest first)
+	poppedPriorities := collectTestPriorities(pq, len(testPriorities))
+
+	// Verify priorities are in descending order (max-heap behavior)
+	require.Equal(t, len(testPriorities), len(poppedPriorities), "Should pop all test items")
+	verifyDescendingOrder(t, poppedPriorities)
+}
+
+// collectTestPriorities pops test items and returns their priorities
+func collectTestPriorities(pq *PriorityQueue[string], expectedCount int) []int {
+	var poppedPriorities []int
+	for len(poppedPriorities) < expectedCount {
+		if task, popErr := pq.Pop(); popErr == nil {
+			if len(task.Value) >= 10 && task.Value[:10] == "final-test" { // Only check our test items
+				poppedPriorities = append(poppedPriorities, task.Priority)
+			}
+		} else {
+			break // No more items
+		}
+	}
+	return poppedPriorities
+}
+
+// verifyDescendingOrder checks that priorities are in descending order
+func verifyDescendingOrder(t *testing.T, priorities []int) {
+	for i := 1; i < len(priorities); i++ {
+		assert.GreaterOrEqual(t, priorities[i-1], priorities[i],
+			"Priorities should be in descending order (index %d: %d >= %d)",
+			i, priorities[i-1], priorities[i])
 	}
 }

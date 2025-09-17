@@ -13,7 +13,18 @@ pointers for optimal performance at both ends of the list.
 - Head and tail pointers for optimal end operations
 - Linear search functionality with O(n) complexity
 - Proper memory management with garbage collection support
+- Thread-safe for concurrent use by multiple goroutines
 - Simple and intuitive API design
+
+# Thread Safety
+
+This implementation is thread-safe and can be used concurrently by multiple goroutines.
+All public methods use appropriate mutex locking:
+- Read operations (Search) use RWMutex.RLock() for concurrent reads
+- Write operations (Prepend, Insert, Delete) use RWMutex.Lock() for exclusive access
+- The mutex prevents race conditions and ensures list consistency across goroutines
+
+No external synchronization is required when using this linked list from multiple goroutines.
 
 # Performance Characteristics
 
@@ -58,6 +69,32 @@ The list excels at scenarios where frequent insertion/deletion is needed with kn
 		log.Fatal(err)
 	}
 	// List now contains: 10 <-> 25 <-> 30
+
+# Concurrent Usage
+
+The linked list is thread-safe and can be used safely from multiple goroutines
+without external synchronization:
+
+	// Multiple goroutines can safely operate on the same list
+	go func() {
+		for i := 0; i < 100; i++ {
+			list.Prepend(i)
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 50; i++ {
+			if node := list.Search(i); node != nil {
+				fmt.Printf("Found: %d\n", node.Value)
+			}
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 25; i++ {
+			list.Delete(i)
+		}
+	}()
 
 # Advanced Usage with Custom Types
 

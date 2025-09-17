@@ -6,63 +6,73 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHeapSort_EmptySlice(t *testing.T) {
 	var empty []int
-	result := HeapSort(empty)
+	result, err := HeapSort(empty)
+	require.NoError(t, err)
 	assert.Empty(t, result, "HeapSort should handle empty slices")
 }
 
 func TestHeapSort_SingleElement(t *testing.T) {
 	single := []int{42}
-	result := HeapSort(single)
+	result, err := HeapSort(single)
+	require.NoError(t, err)
 	assert.Equal(t, []int{42}, result, "HeapSort should handle single element")
 }
 
 func TestHeapSort_AlreadySorted(t *testing.T) {
 	sorted := []int{1, 2, 3, 4, 5}
-	result := HeapSort(sorted)
+	result, err := HeapSort(sorted)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2, 3, 4, 5}, result, "HeapSort should handle already sorted arrays")
 }
 
 func TestHeapSort_ReverseSorted(t *testing.T) {
 	reverse := []int{5, 4, 3, 2, 1}
-	result := HeapSort(reverse)
+	result, err := HeapSort(reverse)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2, 3, 4, 5}, result, "HeapSort should handle reverse sorted arrays")
 }
 
 func TestHeapSort_WithDuplicates(t *testing.T) {
 	duplicates := []int{3, 1, 4, 1, 5, 9, 2, 6, 5}
-	result := HeapSort(duplicates)
+	result, err := HeapSort(duplicates)
+	require.NoError(t, err)
 	expected := []int{1, 1, 2, 3, 4, 5, 5, 6, 9}
 	assert.Equal(t, expected, result, "HeapSort should handle duplicates correctly")
 }
 
 func TestHeapSort_RandomOrder(t *testing.T) {
 	random := []int{64, 34, 25, 12, 22, 11, 90}
-	result := HeapSort(random)
+	result, err := HeapSort(random)
+	require.NoError(t, err)
 	expected := []int{11, 12, 22, 25, 34, 64, 90}
 	assert.Equal(t, expected, result, "HeapSort should sort random arrays correctly")
 }
 
 func TestHeapSort_Strings(t *testing.T) {
 	words := []string{"banana", "apple", "cherry", "date"}
-	result := HeapSort(words)
+	result, err := HeapSort(words)
+	require.NoError(t, err)
 	expected := []string{"apple", "banana", "cherry", "date"}
 	assert.Equal(t, expected, result, "HeapSort should work with strings")
 }
 
 func TestHeapSort_Float64(t *testing.T) {
 	floats := []float64{3.14, 2.71, 1.41, 0.57}
-	result := HeapSort(floats)
+	result, err := HeapSort(floats)
+	require.NoError(t, err)
 	expected := []float64{0.57, 1.41, 2.71, 3.14}
 	assert.Equal(t, expected, result, "HeapSort should work with float64")
 }
 
 func TestHeapSort_NegativeNumbers(t *testing.T) {
 	negatives := []int{-5, -1, -10, 0, 3, -3}
-	result := HeapSort(negatives)
+	result, err := HeapSort(negatives)
+	require.NoError(t, err)
 	expected := []int{-10, -5, -3, -1, 0, 3}
 	assert.Equal(t, expected, result, "HeapSort should handle negative numbers")
 }
@@ -75,7 +85,8 @@ func TestHeapSort_LargeDataset(t *testing.T) {
 		data[i] = rand.Intn(1000)
 	}
 
-	result := HeapSort(data)
+	result, err := HeapSort(data)
+	require.NoError(t, err)
 
 	// Verify it's sorted
 	assert.True(t, sort.IntsAreSorted(result), "Large dataset should be sorted")
@@ -87,7 +98,8 @@ func TestHeapSort_DoesNotModifyOriginal(t *testing.T) {
 	originalCopy := make([]int, len(original))
 	copy(originalCopy, original)
 
-	result := HeapSort(original)
+	result, err := HeapSort(original)
+	require.NoError(t, err)
 
 	// Original should be unchanged
 	assert.Equal(t, originalCopy, original, "HeapSort should not modify original slice")
@@ -99,7 +111,8 @@ func TestHeapSort_CustomOrderedType(t *testing.T) {
 	type Price float64
 
 	prices := []Price{19.99, 9.99, 29.99, 4.99}
-	result := HeapSort(prices)
+	result, err := HeapSort(prices)
+	require.NoError(t, err)
 	expected := []Price{4.99, 9.99, 19.99, 29.99}
 	assert.Equal(t, expected, result, "HeapSort should work with custom ordered types")
 }
@@ -119,7 +132,8 @@ func TestHeapSort_CorrectnessAgainstStandardLibrary(t *testing.T) {
 		sort.Ints(expected)
 
 		// Get our result
-		result := HeapSort(data)
+		result, err := HeapSort(data)
+		require.NoError(t, err)
 
 		assert.Equal(t, expected, result, "HeapSort result should match standard library sort for dataset %d", i)
 	}
@@ -134,7 +148,7 @@ func BenchmarkHeapSort_Random100(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HeapSort(data)
+		_, _ = HeapSort(data)
 	}
 }
 
@@ -146,7 +160,7 @@ func BenchmarkHeapSort_Random1000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HeapSort(data)
+		_, _ = HeapSort(data)
 	}
 }
 
@@ -158,7 +172,7 @@ func BenchmarkHeapSort_Random10000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HeapSort(data)
+		_, _ = HeapSort(data)
 	}
 }
 
@@ -170,7 +184,7 @@ func BenchmarkHeapSort_Sorted1000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HeapSort(data)
+		_, _ = HeapSort(data)
 	}
 }
 
@@ -182,6 +196,6 @@ func BenchmarkHeapSort_Reverse1000(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		HeapSort(data)
+		_, _ = HeapSort(data)
 	}
 }
