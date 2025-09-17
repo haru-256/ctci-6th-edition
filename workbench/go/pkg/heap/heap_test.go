@@ -748,9 +748,9 @@ func performMixedOperations(heap *Heap[int], goroutineID, numOps int) error {
 			}
 		} else {
 			// Peek operation (ignore errors for empty heap)
-			if _, err := heap.Peek(); err != nil {
-				return err
-			}
+if _, err := heap.Peek(); err != nil && err != ErrorIsEmpty {
+	return err
+}
 		}
 	}
 	return nil
